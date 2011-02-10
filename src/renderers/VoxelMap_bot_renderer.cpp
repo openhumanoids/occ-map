@@ -47,13 +47,15 @@ struct _OccMapRendererVoxelMap {
   BotViewer *viewer;
   FloatVoxelMap* voxmap;
 
+  GLuint voxelmap_dl;
+
   //vertex buffer to draw all points at once
   int pointBuffSize;
   double * pointBuffer;
   float * colorBuffer;
+  bool data_dirty;
 
   int numPointsToDraw;
-
 };
 
 static void update_vertex_buffers(OccMapRendererVoxelMap *self)
@@ -128,6 +130,7 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
       }
     }
   }
+  self->data_dirty = true;
 }
 
 static void voxmap_handler(const lcm_recv_buf_t *rbuf, const char *channel, 
@@ -139,7 +142,7 @@ static void voxmap_handler(const lcm_recv_buf_t *rbuf, const char *channel,
     delete self->voxmap;
   self->voxmap = new FloatVoxelMap(msg);
   update_vertex_buffers(self);
-  fprintf(stderr, "M");
+  bot_viewer_request_redraw(self->viewer);
 }
 
 static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
@@ -148,35 +151,67 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
   if (self->voxmap == NULL)
     return;
 
-  glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_POINT_BIT | GL_CURRENT_BIT);
-  //z_buffering
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
-  glPointSize(bot_gtk_param_widget_get_int(self->pw, PARAM_POINT_SIZE));
+  // do we have new voxel data?
+  if(self->data_dirty) {
+    if(self->voxelmap_dl) {
+      glDeleteLists(self->voxelmap_dl, 1);
+    } 
+    self->voxelmap_dl = glGenLists(1);
+    glNewList(self->voxelmap_dl, GL_COMPILE_AND_EXECUTE);
 
-  //render using vertex buffers
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glEnableClientState(GL_COLOR_ARRAY);
+    glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_POINT_BIT | GL_CURRENT_BIT);
+    //z_buffering
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glPointSize(bot_gtk_param_widget_get_int(self->pw, PARAM_POINT_SIZE));
 
-  int color_size = 3;
-  if (bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA))
-    color_size = 4;
+#if 0
+    //render using vertex buffers
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
 
-  glColorPointer(color_size, GL_FLOAT, 0, self->colorBuffer);
-  glVertexPointer(3, GL_DOUBLE, 0, self->pointBuffer);
-  //draw
-  glDrawArrays(GL_POINTS, 0, self->numPointsToDraw);
+    int color_size = 3;
+    if (bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA))
+      color_size = 4;
 
-  glDisableClientState(GL_VERTEX_ARRAY);
-  glDisableClientState(GL_COLOR_ARRAY);
+    glColorPointer(color_size, GL_FLOAT, 0, self->colorBuffer);
+    glVertexPointer(3, GL_DOUBLE, 0, self->pointBuffer);
 
-  glPopAttrib();
+    //draw
+    glDrawArrays(GL_POINTS, 0, self->numPointsToDraw);
 
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+#else
+    glBegin(GL_POINTS);
+    if(bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA)) {
+      for(int i=0; i<self->numPointsToDraw; i++) {
+        glColor4fv(self->colorBuffer + 4*i);
+        glVertex3dv(self->pointBuffer + 3*i);
+      }
+    } else {
+      for(int i=0; i<self->numPointsToDraw; i++) {
+        glColor3fv(self->colorBuffer + 3*i);
+        glVertex3dv(self->pointBuffer + 3*i);
+      }
+    }
+    glEnd();
+#endif
+
+    glPopAttrib();
+
+    glEndList ();
+    self->data_dirty = false;
+  } else {
+    glCallList(self->voxelmap_dl);
+  }
 }
 
 static void VoxelMap_free(BotRenderer *renderer)
 {
-  //TODO: don't LEAK!
+  OccMapRendererVoxelMap* self = (OccMapRendererVoxelMap*) renderer;
+  free(self->pointBuffer);
+  free(self->colorBuffer);
   free(renderer);
 }
 
@@ -195,6 +230,11 @@ renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   BotRenderer *renderer = &self->renderer;
   self->viewer = viewer;
   self->lc = bot_lcm_get_global(NULL);
+  self->pointBuffer = NULL;
+  self->colorBuffer = NULL;
+
+  self->voxelmap_dl = 0;
+  self->data_dirty = false;
 
   renderer->draw = VoxelMap_draw;
   renderer->destroy = VoxelMap_free;
