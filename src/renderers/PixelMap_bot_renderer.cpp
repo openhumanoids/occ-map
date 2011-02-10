@@ -31,9 +31,9 @@
 
 using namespace occ_map;
 
-typedef struct _RendererPixelMap RendererPixelMap;
+typedef struct _OccMapRendererPixelMap OccMapRendererPixelMap;
 
-struct _RendererPixelMap {
+struct _OccMapRendererPixelMap {
   BotRenderer renderer;
   BotEventHandler ehandler;
   lcm_t *lc;
@@ -45,7 +45,7 @@ struct _RendererPixelMap {
   int textureSize[2];
 };
 
-static void upload_map_texture(RendererPixelMap *self);
+static void upload_map_texture(OccMapRendererPixelMap *self);
 
 static void pixel_map_handler(const lcm_recv_buf_t *rbuf, const char *channel, const occ_map_pixel_map_t *msg,
     void *user)
@@ -56,7 +56,7 @@ static void pixel_map_handler(const lcm_recv_buf_t *rbuf, const char *channel, c
   }
   staticmsg = occ_map_pixel_map_t_copy(msg);
 
-  RendererPixelMap *self = (RendererPixelMap*) user;
+  OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
   if (self->pix_map != NULL)
     delete self->pix_map;
   self->pix_map = new FloatPixelMap(msg);
@@ -78,7 +78,7 @@ static float shift_unexplored_and_invert(float v)
   return 1 - shift_unexplored(v);
 }
 
-static void upload_map_texture(RendererPixelMap *self)
+static void upload_map_texture(OccMapRendererPixelMap *self)
 {
 
   if (self->pix_map != NULL) {
@@ -107,7 +107,7 @@ static void upload_map_texture(RendererPixelMap *self)
 
 static void PixelMap_draw(BotViewer *viewer, BotRenderer *renderer)
 {
-  RendererPixelMap *self = (RendererPixelMap*) renderer;
+  OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) renderer;
 
   if (self->map2dtexture) {
 
@@ -175,7 +175,7 @@ static void on_load_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user
   if (!viewer)
     return;
 
-  RendererPixelMap *self = (RendererPixelMap*) user;
+  OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
   bot_gtk_param_widget_load_from_key_file(self->pw, keyfile, RENDERER_NAME);
 }
 
@@ -184,20 +184,21 @@ static void on_save_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user
   if (!viewer)
     return;
 
-  RendererPixelMap *self = (RendererPixelMap*) user;
+  OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
   bot_gtk_param_widget_save_to_key_file(self->pw, keyfile, RENDERER_NAME);
 }
 
 static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, void *user)
 {
-  RendererPixelMap *self = (RendererPixelMap*) user;
+  OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
   upload_map_texture(self);
   bot_viewer_request_redraw(self->viewer);
 }
 
-BotRenderer *renderer_pixel_map_new(BotViewer *viewer, int render_priority)
+static BotRenderer* 
+renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel)
 {
-  RendererPixelMap *self = (RendererPixelMap*) calloc(1, sizeof(RendererPixelMap));
+  OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) calloc(1, sizeof(OccMapRendererPixelMap));
   BotRenderer *renderer = &self->renderer;
   self->viewer = viewer;
   self->lc = bot_lcm_get_global(NULL);
@@ -236,19 +237,28 @@ BotRenderer *renderer_pixel_map_new(BotViewer *viewer, int render_priority)
   g_signal_connect(G_OBJECT(viewer), "load-preferences", G_CALLBACK(on_load_preferences), self);
   g_signal_connect(G_OBJECT(viewer), "save-preferences", G_CALLBACK(on_save_preferences), self);
 
-  occ_map_pixel_map_t_subscribe(self->lc, "SLAM_MAP", pixel_map_handler, self);
+  // pick a default channel if none specified
+  if(!lcm_channel || !strlen(lcm_channel))
+    lcm_channel = "PIXEL_MAP";
+  occ_map_pixel_map_t_subscribe(self->lc, lcm_channel, pixel_map_handler, self);
   return &self->renderer;
 }
 
-extern "C" void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority)
+extern "C" 
+void 
+occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel)
 {
-  bot_viewer_add_renderer(viewer, renderer_pixel_map_new(viewer, render_priority), render_priority);
+  BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm_channel);
+  bot_viewer_add_renderer(viewer, renderer, render_priority);
 }
 
 /*
  * setup_renderer:
  * Generic renderer add function for use as a dynamically loaded plugin
  */
-extern "C" void add_renderer_to_plugin_viewer(BotViewer *viewer, int render_priority){
-  occ_map_pixel_map_add_renderer_to_viewer(viewer, render_priority);
+extern "C" 
+void 
+add_renderer_to_plugin_viewer(BotViewer *viewer, int render_priority)
+{
+  occ_map_pixel_map_add_renderer_to_viewer(viewer, render_priority, NULL);
 }

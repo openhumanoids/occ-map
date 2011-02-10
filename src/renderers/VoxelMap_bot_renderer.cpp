@@ -18,6 +18,8 @@
 
 #include <lcmtypes/occ_map_voxel_map_t.h>
 
+#include "occ_map_renderers.h"
+
 #define RENDERER_NAME "VoxelMap"
 #define PARAM_COLOR_MODE "Color Mode"
 #define PARAM_COLOR_MODE_Z_MAX_Z "Red Height"
@@ -34,9 +36,9 @@ typedef enum _color_mode_t {
   COLOR_MODE_DRAB, COLOR_MODE_Z,
 } color_mode_t;
 
-typedef struct _RendererVoxelMap RendererVoxelMap;
+typedef struct _OccMapRendererVoxelMap OccMapRendererVoxelMap;
 
-struct _RendererVoxelMap {
+struct _OccMapRendererVoxelMap {
   BotRenderer renderer;
   BotEventHandler ehandler;
   lcm_t *lc;
@@ -54,7 +56,7 @@ struct _RendererVoxelMap {
 
 };
 
-static void update_vertex_buffers(RendererVoxelMap *self)
+static void update_vertex_buffers(OccMapRendererVoxelMap *self)
 {
   bool show_free = bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_FREE);
   bool show_occ = bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_OCC);
@@ -131,7 +133,7 @@ static void update_vertex_buffers(RendererVoxelMap *self)
 static void voxmap_handler(const lcm_recv_buf_t *rbuf, const char *channel, 
         const occ_map_voxel_map_t *msg, void *user)
 {
-  RendererVoxelMap *self = (RendererVoxelMap*) user;
+  OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
 
   if (self->voxmap != NULL)
     delete self->voxmap;
@@ -142,7 +144,7 @@ static void voxmap_handler(const lcm_recv_buf_t *rbuf, const char *channel,
 
 static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
 {
-  RendererVoxelMap *self = (RendererVoxelMap*) renderer;
+  OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) renderer;
   if (self->voxmap == NULL)
     return;
 
@@ -180,15 +182,16 @@ static void VoxelMap_free(BotRenderer *renderer)
 
 static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, void *user)
 {
-  RendererVoxelMap *self = (RendererVoxelMap*) user;
+  OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
   if (self->voxmap != NULL)
     update_vertex_buffers(self);
   bot_viewer_request_redraw(self->viewer);
 }
 
-BotRenderer *renderer_voxel_map_new(BotViewer *viewer, int render_priority)
+static BotRenderer* 
+renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel)
 {
-  RendererVoxelMap *self = (RendererVoxelMap*) calloc(1, sizeof(RendererVoxelMap));
+  OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) calloc(1, sizeof(OccMapRendererVoxelMap));
   BotRenderer *renderer = &self->renderer;
   self->viewer = viewer;
   self->lc = bot_lcm_get_global(NULL);
@@ -203,8 +206,9 @@ BotRenderer *renderer_voxel_map_new(BotViewer *viewer, int render_priority)
   self->pw = BOT_GTK_PARAM_WIDGET(bot_gtk_param_widget_new());
   renderer->widget = gtk_vbox_new(FALSE, 0);
   gtk_box_pack_start(GTK_BOX(renderer->widget), GTK_WIDGET(self->pw), TRUE, TRUE, 0);
-  bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_MENU, 0, "Height", COLOR_MODE_Z,
-      "Drab", COLOR_MODE_DRAB, NULL);
+  bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
+          0, "Height", COLOR_MODE_Z,
+          "Drab", COLOR_MODE_DRAB, NULL);
 
   bot_gtk_param_widget_add_int(self->pw, PARAM_POINT_SIZE, BOT_GTK_PARAM_WIDGET_SLIDER, 1, 20, 1, 4);
 
@@ -224,11 +228,17 @@ BotRenderer *renderer_voxel_map_new(BotViewer *viewer, int render_priority)
   g_signal_connect(G_OBJECT(self->pw), "changed", G_CALLBACK(on_param_widget_changed), self);
   on_param_widget_changed(self->pw, "", self);
 
-  occ_map_voxel_map_t_subscribe(self->lc, "VOXMAP_VELODYNE", voxmap_handler, self);
+  // pick a default channel if none specified
+  if(!lcm_channel || !strlen(lcm_channel))
+    lcm_channel = "VOXEL_MAP";
+  occ_map_voxel_map_t_subscribe(self->lc, lcm_channel, voxmap_handler, self);
   return &self->renderer;
 }
 
-extern "C" void occ_map_voxel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority)
+extern "C" 
+void 
+occ_map_voxel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel)
 {
-  bot_viewer_add_renderer(viewer, renderer_voxel_map_new(viewer, render_priority), render_priority);
+  BotRenderer* renderer = renderer_voxel_map_new(viewer, render_priority, lcm_channel);
+  bot_viewer_add_renderer(viewer, renderer, render_priority);
 }

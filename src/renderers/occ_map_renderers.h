@@ -19,8 +19,11 @@
 extern "C" {
 #endif
 
-void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority);
-void occ_map_voxel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority);
+void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, 
+        const char* lcm_channel);
+
+void occ_map_voxel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority,
+        const char* lcm_channel);
 
 #ifdef __cplusplus
 }
