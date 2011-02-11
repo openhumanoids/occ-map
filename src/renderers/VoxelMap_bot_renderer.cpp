@@ -22,6 +22,7 @@
 
 #define RENDERER_NAME "VoxelMap"
 #define PARAM_COLOR_MODE "Color Mode"
+#define PARAM_RENDER_MODE "Render Mode"
 #define PARAM_COLOR_MODE_Z_MAX_Z "Red Height"
 #define PARAM_COLOR_MODE_Z_MIN_Z "Blue Height"
 #define PARAM_SHOW_FREE "Show Free"
@@ -35,6 +36,11 @@ using namespace occ_map;
 typedef enum _color_mode_t {
   COLOR_MODE_DRAB, COLOR_MODE_Z,
 } color_mode_t;
+
+enum {
+  RENDER_MODE_POINTS,
+  RENDER_MODE_BOXES
+};
 
 typedef struct _OccMapRendererVoxelMap OccMapRendererVoxelMap;
 
@@ -84,7 +90,6 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
       }
     }
   }
-  fprintf(stderr, "there are %d points to draw\n", self->numPointsToDraw);
   self->pointBuffSize = self->numPointsToDraw;
 
   int color_size = 3;
@@ -163,39 +168,71 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
     //z_buffering
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    glPointSize(bot_gtk_param_widget_get_int(self->pw, PARAM_POINT_SIZE));
+
+//    int rmode = bot_gtk_param_widget_get_enum(self->pw, PARAM_RENDER_MODE);
+    int rmode = RENDER_MODE_POINTS;
+
+    if(rmode == RENDER_MODE_POINTS) {
+      glPointSize(bot_gtk_param_widget_get_int(self->pw, PARAM_POINT_SIZE));
 
 #if 0
-    //render using vertex buffers
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
+      // render using vertex arrays
+      glEnableClientState(GL_VERTEX_ARRAY);
+      glEnableClientState(GL_COLOR_ARRAY);
 
-    int color_size = 3;
-    if (bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA))
-      color_size = 4;
+      int color_size = 3;
+      if (bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA))
+        color_size = 4;
 
-    glColorPointer(color_size, GL_FLOAT, 0, self->colorBuffer);
-    glVertexPointer(3, GL_DOUBLE, 0, self->pointBuffer);
+      glColorPointer(color_size, GL_FLOAT, 0, self->colorBuffer);
+      glVertexPointer(3, GL_DOUBLE, 0, self->pointBuffer);
 
-    //draw
-    glDrawArrays(GL_POINTS, 0, self->numPointsToDraw);
+      // draw
+      glDrawArrays(GL_POINTS, 0, self->numPointsToDraw);
 
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
+      glDisableClientState(GL_VERTEX_ARRAY);
+      glDisableClientState(GL_COLOR_ARRAY);
 #else
-    glBegin(GL_POINTS);
-    if(bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA)) {
-      for(int i=0; i<self->numPointsToDraw; i++) {
-        glColor4fv(self->colorBuffer + 4*i);
-        glVertex3dv(self->pointBuffer + 3*i);
+      glBegin(GL_POINTS);
+      if(bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA)) {
+        for(int i=0; i<self->numPointsToDraw; i++) {
+          glColor4fv(self->colorBuffer + 4*i);
+          glVertex3dv(self->pointBuffer + 3*i);
+        }
+      } else {
+        for(int i=0; i<self->numPointsToDraw; i++) {
+          glColor3fv(self->colorBuffer + 3*i);
+          glVertex3dv(self->pointBuffer + 3*i);
+        }
       }
+      glEnd();
     } else {
+      int use_alpha = bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA);
+      double mpp[3] = {
+        self->voxmap->metersPerPixel[0],
+        self->voxmap->metersPerPixel[1],
+        self->voxmap->metersPerPixel[2]
+      };
+      glEnable(GL_LIGHTING);
+//      glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+      glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
+      glEnable(GL_COLOR_MATERIAL);
       for(int i=0; i<self->numPointsToDraw; i++) {
-        glColor3fv(self->colorBuffer + 3*i);
-        glVertex3dv(self->pointBuffer + 3*i);
+        double* p = self->pointBuffer + 3*i;
+        if(use_alpha) {
+          glColor4fv(self->colorBuffer + 4*i);
+        } else {
+          glColor3fv(self->colorBuffer + 3*i);
+        }
+        glPushMatrix();
+        glTranslatef(p[0] + mpp[0] / 2, p[1] + mpp[1] / 2, p[2] + mpp[2] / 2);
+        glScalef(mpp[0], mpp[1], mpp[2]);
+        bot_gl_draw_cube();
+        glPopMatrix();
       }
+      glDisable(GL_COLOR_MATERIAL);
+      glDisable(GL_LIGHTING);
     }
-    glEnd();
 #endif
 
     glPopAttrib();
@@ -247,8 +284,15 @@ renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   renderer->widget = gtk_vbox_new(FALSE, 0);
   gtk_box_pack_start(GTK_BOX(renderer->widget), GTK_WIDGET(self->pw), TRUE, TRUE, 0);
   bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
-          0, "Height", COLOR_MODE_Z,
+          COLOR_MODE_Z, 
+          "Height", COLOR_MODE_Z,
           "Drab", COLOR_MODE_DRAB, NULL);
+
+//  bot_gtk_param_widget_add_enum(self->pw, PARAM_RENDER_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
+//      RENDER_MODE_BOXES, 
+//          "Points", RENDER_MODE_POINTS,
+//          "Boxes", RENDER_MODE_BOXES, 
+//          NULL);
 
   bot_gtk_param_widget_add_int(self->pw, PARAM_POINT_SIZE, BOT_GTK_PARAM_WIDGET_SLIDER, 1, 20, 1, 4);
 

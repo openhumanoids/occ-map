@@ -30,7 +30,7 @@ int main(int argc, char ** argv)
     fvm.raytrace(xyzO, xyzR, 1, .3);
   }
 
-  occ_map_voxel_map_t * msg = fvm.get_voxel_map_t();
+  const occ_map_voxel_map_t * msg = fvm.get_voxel_map_t();
   lcm_t * lcm = lcm_create(NULL);
   occ_map_voxel_map_t_publish(lcm, "VOXEL_MAP",msg);
 }

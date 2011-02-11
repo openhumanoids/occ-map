@@ -49,7 +49,7 @@ public:
   {
     memcpy(xyz0, to_copy->xyz0, 3 * sizeof(double));
     memcpy(xyz1, to_copy->xyz1, 3 * sizeof(double));
-    memcpy(metersPerPixel, to_copy->mpp, 3 * sizeof(double));
+    memcpy(metersPerPixel, to_copy->metersPerPixel, 3 * sizeof(double));
     memcpy(dimensions, to_copy->dimensions, 3 * sizeof(int));
 
     num_cells = 1;
@@ -61,7 +61,7 @@ public:
     for (ixyz[2] = 0; ixyz[2] < dimensions[2]; ixyz[2]++) {
       for (ixyz[1] = 0; ixyz[1] < dimensions[1]; ixyz[1]++) {
         for (ixyz[0] = 0; ixyz[0] < dimensions[0]; ixyz[0]++) {
-          writeValeu(ixyz, to_copy->readValue(ixyz));
+          writeValue(ixyz, to_copy->readValue(ixyz));
         }
       }
     }
@@ -289,7 +289,7 @@ public:
     raytrace(iorigin, iendpoint, miss_inc, hit_inc);
   }
 
-  occ_map_voxel_map_t * get_voxel_map_t()
+  const occ_map_voxel_map_t * get_voxel_map_t()
   {
     if (msg == NULL)
       msg = (occ_map_voxel_map_t *) calloc(1, sizeof(occ_map_voxel_map_t));
