@@ -164,13 +164,13 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
     self->voxelmap_dl = glGenLists(1);
     glNewList(self->voxelmap_dl, GL_COMPILE_AND_EXECUTE);
 
+    fprintf(stderr, "data dirty\n");
     glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_POINT_BIT | GL_CURRENT_BIT);
     //z_buffering
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
-//    int rmode = bot_gtk_param_widget_get_enum(self->pw, PARAM_RENDER_MODE);
-    int rmode = RENDER_MODE_POINTS;
+    int rmode = bot_gtk_param_widget_get_enum(self->pw, PARAM_RENDER_MODE);
 
     if(rmode == RENDER_MODE_POINTS) {
       glPointSize(bot_gtk_param_widget_get_int(self->pw, PARAM_POINT_SIZE));
@@ -215,14 +215,18 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
       };
       glEnable(GL_LIGHTING);
 //      glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-      glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
+      glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
       glEnable(GL_COLOR_MATERIAL);
+      glEnable (GL_RESCALE_NORMAL);
       for(int i=0; i<self->numPointsToDraw; i++) {
         double* p = self->pointBuffer + 3*i;
         if(use_alpha) {
-          glColor4fv(self->colorBuffer + 4*i);
+          float* c = self->colorBuffer + 4*i;
+          glColor4fv(c);
         } else {
-          glColor3fv(self->colorBuffer + 3*i);
+          float* c = self->colorBuffer + 3*i;
+//          glColor3f(c[0] * 0.1, c[1] * 0.1, c[2] * 0.1);
+          glColor3fv(c);
         }
         glPushMatrix();
         glTranslatef(p[0] + mpp[0] / 2, p[1] + mpp[1] / 2, p[2] + mpp[2] / 2);
@@ -230,6 +234,7 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
         bot_gl_draw_cube();
         glPopMatrix();
       }
+      glDisable(GL_RESCALE_NORMAL);
       glDisable(GL_COLOR_MATERIAL);
       glDisable(GL_LIGHTING);
     }
@@ -288,11 +293,11 @@ renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
           "Height", COLOR_MODE_Z,
           "Drab", COLOR_MODE_DRAB, NULL);
 
-//  bot_gtk_param_widget_add_enum(self->pw, PARAM_RENDER_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
-//      RENDER_MODE_BOXES, 
-//          "Points", RENDER_MODE_POINTS,
-//          "Boxes", RENDER_MODE_BOXES, 
-//          NULL);
+  bot_gtk_param_widget_add_enum(self->pw, PARAM_RENDER_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
+      RENDER_MODE_BOXES, 
+          "Points", RENDER_MODE_POINTS,
+          "Boxes", RENDER_MODE_BOXES, 
+          NULL);
 
   bot_gtk_param_widget_add_int(self->pw, PARAM_POINT_SIZE, BOT_GTK_PARAM_WIDGET_SLIDER, 1, 20, 1, 4);
 
