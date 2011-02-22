@@ -4,14 +4,11 @@
 #include <lcmtypes/occ_map_voxel_map_t.h>
 #include <zlib.h>
 #include <math.h>
+#include <fstream>
 #include <assert.h>
 
 namespace occ_map
 {
-
-#ifndef clamp_value
-#define clamp_value(x,min,max) (x < min ? min : (x > max ? max : x))
-#endif
 
 template<class T>
 class VoxelMap {
@@ -70,31 +67,25 @@ public:
   VoxelMap<T> (const occ_map_voxel_map_t * _msg) :
     msg(NULL)
   {
-    memcpy(xyz0, _msg->xyz0, 3 * sizeof(double));
-    memcpy(xyz1, _msg->xyz1, 3 * sizeof(double));
-    memcpy(metersPerPixel, _msg->mpp, 3 * sizeof(double));
-    memcpy(dimensions, _msg->dimensions, 3 * sizeof(int));
-
-    num_cells = 1;
-    for (int i = 0; i < 3; i++)
-      num_cells *= dimensions[i];
-    uLong uncompressed_size = num_cells * sizeof(T);
-    data = (T *) malloc(uncompressed_size);
-
-    if (_msg->compressed) {
-      uLong uncompress_size_result = uncompressed_size;
-      uLong uncompress_return = uncompress((Bytef *) data, (uLong *) &uncompress_size_result, (Bytef *) _msg->mapData,
-          (uLong) _msg->datasize);
-      if (uncompress_return != Z_OK || uncompress_size_result != uncompressed_size) {
-        fprintf(stderr, "ERROR uncompressing the map, ret = %lu", uncompress_return);
-        exit(1);
-      }
-
-    }
-    else {
-      assert(_msg->datasize == uncompressed_size);
-      memcpy(data, _msg->mapData, uncompressed_size);
-    }
+    set_from_voxel_map_t(_msg);
+  }
+  /*
+   * Constructor from a file (created with "saveToFile")
+   */
+  VoxelMap<T> (const char * name) :
+    msg(NULL),data(NULL)
+  {
+    std::ifstream ifs(name, std::ios::binary);
+    int sz;
+    ifs >> sz;
+    char * data = (char *) malloc(sz* sizeof(char));
+    ifs.read(data, sz*sizeof(char));
+    ifs.close();
+    occ_map_voxel_map_t tmpmsg;
+    occ_map_voxel_map_t_decode(data,0,sz,&tmpmsg);
+    set_from_voxel_map_t(&tmpmsg);
+    occ_map_voxel_map_t_decode_cleanup(&tmpmsg);
+    free(data);
   }
 
   virtual ~VoxelMap<T> ()
@@ -289,7 +280,7 @@ public:
     raytrace(iorigin, iendpoint, miss_inc, hit_inc);
   }
 
-  const occ_map_voxel_map_t * get_voxel_map_t()
+  const occ_map_voxel_map_t * get_voxel_map_t(int64_t utime)
   {
     if (msg == NULL)
       msg = (occ_map_voxel_map_t *) calloc(1, sizeof(occ_map_voxel_map_t));
@@ -311,10 +302,60 @@ public:
     //    fprintf(stderr, "uncompressed_size=%ld compressed_size=%ld\n", uncompressed_size, compress_buf_size);
     msg->datasize = compress_buf_size;
     msg->compressed = 1;
-    msg->utime = -1;
+    msg->utime = utime;
 
     return msg;
   }
+
+  void set_from_voxel_map_t(const occ_map_voxel_map_t * _msg){
+    memcpy(xyz0, _msg->xyz0, 3 * sizeof(double));
+    memcpy(xyz1, _msg->xyz1, 3 * sizeof(double));
+    memcpy(metersPerPixel, _msg->mpp, 3 * sizeof(double));
+    memcpy(dimensions, _msg->dimensions, 3 * sizeof(int));
+
+    num_cells = 1;
+    for (int i = 0; i < 3; i++)
+      num_cells *= dimensions[i];
+    uLong uncompressed_size = num_cells * sizeof(T);
+    data = (T *) malloc(uncompressed_size);
+
+    if (_msg->compressed) {
+      uLong uncompress_size_result = uncompressed_size;
+      uLong uncompress_return = uncompress((Bytef *) data, (uLong *) &uncompress_size_result, (Bytef *) _msg->mapData,
+          (uLong) _msg->datasize);
+      if (uncompress_return != Z_OK || uncompress_size_result != uncompressed_size) {
+        fprintf(stderr, "ERROR uncompressing the map, ret = %lu\n", uncompress_return);
+        exit(1);
+      }
+
+    }
+    else {
+      assert(_msg->datasize == uncompressed_size);
+      memcpy(data, _msg->mapData, uncompressed_size);
+    }
+  }
+
+  void saveToFile(const char * name){
+    const occ_map_voxel_map_t * msg = get_voxel_map_t(0);
+    int sz = occ_map_voxel_map_t_encoded_size(msg);
+    char * buf = (char *) malloc(sz*sizeof(char));
+    occ_map_voxel_map_t_encode(buf,0,sz,msg);
+    std::ofstream ofs(name, std::ios::binary);
+    ofs << sz;
+    ofs.write(buf, sz);
+    ofs.close();
+    free(buf);
+  }
+
+  inline T clamp_value(T x, T min, T max) const
+  {
+    if(x < min)
+      return min;
+    if(x > max)
+      return max;
+    return x;
+  }
+
 
 };
 
