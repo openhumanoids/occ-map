@@ -22,8 +22,9 @@ public:
   T * data;
   occ_map_voxel_map_t *msg;
 
-  VoxelMap<T> (double _xyz0[3], double _xyz1[3], double _metersPerPixel[3], T initValue = 0) :
-    msg(NULL)
+  VoxelMap<T> (const double _xyz0[3], const double _xyz1[3], const double _metersPerPixel[3],
+      T initValue = 0, bool allocate_data = true) :
+    data(NULL), msg(NULL)
   {
     memcpy(xyz0, _xyz0, 3 * sizeof(double));
     memcpy(xyz1, _xyz1, 3 * sizeof(double));
@@ -35,9 +36,10 @@ public:
       xyz1[i] = xyz0[i] + dimensions[i] * metersPerPixel[i];
       num_cells *= dimensions[i];
     }
-
-    data = (T *) calloc(num_cells, sizeof(T));
-    reset(initValue);
+    if (allocate_data){
+      data = (T *) calloc(num_cells, sizeof(T));
+      reset(initValue);
+    }
   }
 
   template<class F>
@@ -143,8 +145,9 @@ public:
 
   void reset(T resetVal = 0)
   {
-    for (int i = 0; i < num_cells; i++)
-      data[i] = resetVal;
+    if (data != NULL)
+      for (int i = 0; i < num_cells; i++)
+        data[i] = resetVal;
   }
 
   inline T readValue(const int ixyz[3]) const

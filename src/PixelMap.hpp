@@ -23,7 +23,7 @@ public:
   /*
    * normal constructor
    */
-  PixelMap<T> (double _xy0[2], double _xy1[2], double mPP, T initValue = 0, bool allocate_data = true) :
+  PixelMap<T> (const double _xy0[2], const double _xy1[2], double mPP, T initValue = 0, bool allocate_data = true) :
     metersPerPixel(mPP), msg(NULL), data(NULL)
   {
     memcpy(xy0, _xy0, 2 * sizeof(double));
@@ -43,8 +43,7 @@ public:
     num_cells = dimensions[0] * dimensions[1];
     if (allocate_data) {
       data = (T *) malloc(num_cells * sizeof(T));
-      for (int i = 0; i < num_cells; i++)
-        data[i] = initValue;
+      reset(initValue);
     }
   }
 
