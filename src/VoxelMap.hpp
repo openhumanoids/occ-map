@@ -123,20 +123,20 @@ public:
     return clamped;
   }
 
-  inline void tableToWorld(int ixyz[3], double * xyz) const
+  inline void tableToWorld(const int ixyz[3], double * xyz) const
   {
     for (int i = 0; i < 3; i++)
       xyz[i] = ((double) ixyz[i]) * metersPerPixel[i] + xyz0[i];
   }
 
-  inline bool isInMap(int ixyz[3])
+  inline bool isInMap(const int ixyz[3]) const
   {
     for (int i = 0; i < 3; i++)
       if (ixyz[i] < 0 || ixyz[i] >= dimensions[i] - 1)
         return false;
     return true;
   }
-  inline bool isInMap(double xyz[3])
+  inline bool isInMap(const double xyz[3]) const
   {
     for (int i = 0; i < 3; i++)
       if (xyz[i] <= xyz0[i] || xyz[i] >= xyz1[i])
@@ -173,7 +173,7 @@ public:
     worldToTable(xyz, ixyz);
     writeValue(ixyz, value);
   }
-  inline void updateValue(const int ixyz[3], T value, T clamp_bounds[2] = NULL)
+  inline void updateValue(const int ixyz[3], T value, const T clamp_bounds[2] = NULL)
   {
     int ind = getInd(ixyz);
     data[ind] += value;
@@ -182,14 +182,14 @@ public:
     }
 
   }
-  inline void updateValue(const double xyz[3], T value, T clamp_bounds[2] = NULL)
+  inline void updateValue(const double xyz[3], T value, const T clamp_bounds[2] = NULL)
   {
     int ixyz[3];
     worldToTable(xyz, ixyz);
     updateValue(ixyz, value, clamp_bounds);
   }
 
-  void raytrace(int origin[3], int endpoint[3], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL)
+  void raytrace(const int origin[3], const int endpoint[3], T miss_inc, T hit_inc,const  T clamp_bounds[2] = NULL)
   {
     //3D Bresenham implimentation copied from:
     //http://www.cit.griffith.edu.au/~anthony/info/graphics/bresenham.procs
@@ -279,7 +279,7 @@ public:
     updateValue(voxel, hit_inc, clamp_bounds);
   }
 
-  void raytrace(double origin[3], double endpoint[3], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL)
+  void raytrace(const double origin[3],const  double endpoint[3], T miss_inc, T hit_inc,const  T clamp_bounds[2] = NULL)
   {
     int iorigin[3];
     int iendpoint[3];
