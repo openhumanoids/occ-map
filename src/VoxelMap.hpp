@@ -7,8 +7,7 @@
 #include <fstream>
 #include <assert.h>
 
-namespace occ_map
-{
+namespace occ_map {
 
 template<class T>
 class VoxelMap {
@@ -22,8 +21,8 @@ public:
   T * data;
   occ_map_voxel_map_t *msg;
 
-  VoxelMap<T> (const double _xyz0[3], const double _xyz1[3], const double _metersPerPixel[3],
-      T initValue = 0, bool allocate_data = true) :
+  VoxelMap<T> (const double _xyz0[3], const double _xyz1[3], const double _metersPerPixel[3], T initValue = 0,
+      bool allocate_data = true) :
     data(NULL), msg(NULL)
   {
     memcpy(xyz0, _xyz0, 3 * sizeof(double));
@@ -36,14 +35,14 @@ public:
       xyz1[i] = xyz0[i] + dimensions[i] * metersPerPixel[i];
       num_cells *= dimensions[i];
     }
-    if (allocate_data){
+    if (allocate_data) {
       data = (T *) calloc(num_cells, sizeof(T));
       reset(initValue);
     }
   }
 
   template<class F>
-  VoxelMap<T> (const VoxelMap<F> * to_copy) :
+  VoxelMap<T> (const VoxelMap<F> * to_copy, T(*transformFunc)(F) = NULL) :
     msg(NULL)
   {
     memcpy(xyz0, to_copy->xyz0, 3 * sizeof(double));
@@ -54,13 +53,15 @@ public:
     num_cells = 1;
     for (int i = 0; i < 3; i++)
       num_cells *= dimensions[i];
-    uLong uncompressed_size = num_cells * sizeof(T);
-    data = (T *) malloc(uncompressed_size);
+    data = (T *) malloc(num_cells * sizeof(T));
     int ixyz[3];
     for (ixyz[2] = 0; ixyz[2] < dimensions[2]; ixyz[2]++) {
       for (ixyz[1] = 0; ixyz[1] < dimensions[1]; ixyz[1]++) {
         for (ixyz[0] = 0; ixyz[0] < dimensions[0]; ixyz[0]++) {
-          writeValue(ixyz, to_copy->readValue(ixyz));
+          if (transformFunc != NULL)
+            writeValue(ixyz, transformFunc(to_copy->readValue(ixyz)));
+          else
+            writeValue(ixyz, to_copy->readValue(ixyz));
         }
       }
     }
@@ -75,16 +76,16 @@ public:
    * Constructor from a file (created with "saveToFile")
    */
   VoxelMap<T> (const char * name) :
-    msg(NULL),data(NULL)
+    msg(NULL), data(NULL)
   {
     std::ifstream ifs(name, std::ios::binary);
     int sz;
     ifs >> sz;
-    char * data = (char *) malloc(sz* sizeof(char));
-    ifs.read(data, sz*sizeof(char));
+    char * data = (char *) malloc(sz * sizeof(char));
+    ifs.read(data, sz * sizeof(char));
     ifs.close();
     occ_map_voxel_map_t tmpmsg;
-    occ_map_voxel_map_t_decode(data,0,sz,&tmpmsg);
+    occ_map_voxel_map_t_decode(data, 0, sz, &tmpmsg);
     set_from_voxel_map_t(&tmpmsg);
     occ_map_voxel_map_t_decode_cleanup(&tmpmsg);
     free(data);
@@ -115,7 +116,7 @@ public:
     for (int i = 0; i < 3; i++) {
       ixyz[i] = round((xyz[i] - xyz0[i]) / metersPerPixel[i]);
       if (ixyz[i] <= 0 || ixyz[i] >= dimensions[i] - 1) {
-        ixyz[i] =clamp_value(ixyz[i], 0, dimensions[i] - 1);
+        ixyz[i] = clamp_value(ixyz[i], 0, dimensions[i] - 1);
         clamped = true;
       }
     }
@@ -172,19 +173,23 @@ public:
     worldToTable(xyz, ixyz);
     writeValue(ixyz, value);
   }
-  inline void updateValue(const int ixyz[3], T value)
+  inline void updateValue(const int ixyz[3], T value, T clamp_bounds[2] = NULL)
   {
     int ind = getInd(ixyz);
     data[ind] += value;
+    if (clamp_bounds != NULL) {
+      data[ind] = clamp_value(data[ind],clamp_bounds[0],clamp_bounds[1]);
+    }
+
   }
-  inline void updateValue(const double xyz[3], T value)
+  inline void updateValue(const double xyz[3], T value, T clamp_bounds[2] = NULL)
   {
     int ixyz[3];
     worldToTable(xyz, ixyz);
-    updateValue(ixyz, value);
+    updateValue(ixyz, value, clamp_bounds);
   }
 
-  void raytrace(int origin[3], int endpoint[3], T miss_inc, T hit_inc)
+  void raytrace(int origin[3], int endpoint[3], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL)
   {
     //3D Bresenham implimentation copied from:
     //http://www.cit.griffith.edu.au/~anthony/info/graphics/bresenham.procs
@@ -220,7 +225,7 @@ public:
       err_1 = dy2 - l;
       err_2 = dz2 - l;
       for (i = 0; i < l; i++) {
-        updateValue(voxel, miss_inc);
+        updateValue(voxel, miss_inc, clamp_bounds);
         if (err_1 > 0) {
           voxel[1] += y_inc;
           err_1 -= dx2;
@@ -238,7 +243,7 @@ public:
       err_1 = dx2 - m;
       err_2 = dz2 - m;
       for (i = 0; i < m; i++) {
-        updateValue(voxel, miss_inc);
+        updateValue(voxel, miss_inc, clamp_bounds);
         if (err_1 > 0) {
           voxel[0] += x_inc;
           err_1 -= dy2;
@@ -256,7 +261,7 @@ public:
       err_1 = dy2 - n;
       err_2 = dx2 - n;
       for (i = 0; i < n; i++) {
-        updateValue(voxel, miss_inc);
+        updateValue(voxel, miss_inc, clamp_bounds);
 
         if (err_1 > 0) {
           voxel[1] += y_inc;
@@ -271,16 +276,16 @@ public:
         voxel[2] += z_inc;
       }
     }
-    updateValue(voxel, hit_inc);
+    updateValue(voxel, hit_inc, clamp_bounds);
   }
 
-  void raytrace(double origin[3], double endpoint[3], T miss_inc, T hit_inc)
+  void raytrace(double origin[3], double endpoint[3], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL)
   {
     int iorigin[3];
     int iendpoint[3];
     worldToTable(origin, iorigin);
     worldToTable(endpoint, iendpoint);
-    raytrace(iorigin, iendpoint, miss_inc, hit_inc);
+    raytrace(iorigin, iendpoint, miss_inc, hit_inc, clamp_bounds);
   }
 
   const occ_map_voxel_map_t * get_voxel_map_t(int64_t utime)
@@ -310,7 +315,8 @@ public:
     return msg;
   }
 
-  void set_from_voxel_map_t(const occ_map_voxel_map_t * _msg){
+  void set_from_voxel_map_t(const occ_map_voxel_map_t * _msg)
+  {
     memcpy(xyz0, _msg->xyz0, 3 * sizeof(double));
     memcpy(xyz1, _msg->xyz1, 3 * sizeof(double));
     memcpy(metersPerPixel, _msg->mpp, 3 * sizeof(double));
@@ -338,11 +344,12 @@ public:
     }
   }
 
-  void saveToFile(const char * name){
+  void saveToFile(const char * name)
+  {
     const occ_map_voxel_map_t * msg = get_voxel_map_t(0);
     int sz = occ_map_voxel_map_t_encoded_size(msg);
-    char * buf = (char *) malloc(sz*sizeof(char));
-    occ_map_voxel_map_t_encode(buf,0,sz,msg);
+    char * buf = (char *) malloc(sz * sizeof(char));
+    occ_map_voxel_map_t_encode(buf, 0, sz, msg);
     std::ofstream ofs(name, std::ios::binary);
     ofs << sz;
     ofs.write(buf, sz);
@@ -352,18 +359,17 @@ public:
 
   inline T clamp_value(T x, T min, T max) const
   {
-    if(x < min)
+    if (x < min)
       return min;
-    if(x > max)
+    if (x > max)
       return max;
     return x;
   }
 
-
 };
 
 typedef VoxelMap<float> FloatVoxelMap;
- 
+
 }
 
 #endif /*VOXELMAP_H_*/
