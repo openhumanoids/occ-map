@@ -23,6 +23,7 @@
 #define RENDERER_NAME "VoxelMap"
 #define PARAM_COLOR_MODE "Color Mode"
 #define PARAM_RENDER_MODE "Render Mode"
+#define PARAM_Z_MAX_CUTOFF "Z Max Cutoff"
 #define PARAM_COLOR_MODE_Z_MAX_Z "Red Height"
 #define PARAM_COLOR_MODE_Z_MIN_Z "Blue Height"
 #define PARAM_SHOW_FREE "Show Free"
@@ -97,6 +98,8 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
     color_size = 4;
   self->pointBuffer = (double *) realloc(self->pointBuffer, self->numPointsToDraw * 3 * sizeof(double));
   self->colorBuffer = (float *) realloc(self->colorBuffer, self->numPointsToDraw * color_size * sizeof(float));
+
+  double max_z_cutoff = bot_gtk_param_widget_get_double(self->pw, PARAM_Z_MAX_CUTOFF);
 
   double min_z = bot_gtk_param_widget_get_double(self->pw, PARAM_COLOR_MODE_Z_MIN_Z);
   double max_z = bot_gtk_param_widget_get_double(self->pw, PARAM_COLOR_MODE_Z_MAX_Z);
@@ -262,6 +265,8 @@ static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, voi
   OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
   if (self->voxmap != NULL)
     update_vertex_buffers(self);
+  if(!strcmp(name, PARAM_Z_MAX_CUTOFF))
+    update_vertex_buffers(self);
   bot_viewer_request_redraw(self->viewer);
 }
 
@@ -306,6 +311,8 @@ renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_SHOW_FREE, 0, NULL);
 
   bot_gtk_param_widget_add_double(self->pw, PARAM_CUTOFF, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, .01, .1);
+
+  bot_gtk_param_widget_add_double(self->pw, PARAM_Z_MAX_CUTOFF, BOT_GTK_PARAM_WIDGET_SPINBOX, -2, 40, .5, 5);
 
   bot_gtk_param_widget_add_double(self->pw, PARAM_COLOR_MODE_Z_MAX_Z, BOT_GTK_PARAM_WIDGET_SLIDER, -2, 40, .5, 15);
   bot_gtk_param_widget_add_double(self->pw, PARAM_COLOR_MODE_Z_MIN_Z, BOT_GTK_PARAM_WIDGET_SLIDER, -2, 40, .5, 0);
