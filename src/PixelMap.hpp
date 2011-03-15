@@ -117,6 +117,13 @@ public:
     return ixy[1] * dimensions[0] + ixy[0];
   }
 
+  inline void indToLoc(int ind, int ixy[2]) const
+  {
+    ixy[1] = ind / (dimensions[0]);
+    ind -= ixy[1] * dimensions[0];
+    ixy[0] = ind;
+  }
+
   inline void worldToTable(const double xy[2], int ixy[2]) const
   {
     ixy[0] = clamp_value(round((xy[0] - xy0[0]) / metersPerPixel), 0., (double)(dimensions[0] - 1));

@@ -27,7 +27,7 @@
 #define PARAM_Z_OFFSET "Z-Offset"
 //#define PARAM_FOLLOW_Z "Follow Vehicle Z"
 
-#define RENDERER_NAME "PixelMap"
+#define DEFAULT_RENDERER_NAME "PixelMap"
 
 using namespace occ_map;
 
@@ -78,17 +78,26 @@ static float shift_unexplored_and_invert(float v)
   return 1 - shift_unexplored(v);
 }
 
+static float invert(float v) {
+  return 1 - v;
+}
+
 static void upload_map_texture(OccMapRendererPixelMap *self)
 {
 
   if (self->pix_map != NULL) {
     FloatPixelMap * drawMap=NULL;
-    if (!bot_gtk_param_widget_get_bool(self->pw, PARAM_COLOR_MAP)) {
-      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored_and_invert);
-    }
-    else {
-      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored);
-    }
+
+    //TBD - we shouldn't be doing this anymore
+    // makes assumptions about pixelmap format
+//    if (!bot_gtk_param_widget_get_bool(self->pw, PARAM_COLOR_MAP)) {
+//      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored_and_invert);
+//    }
+//    else {
+//      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored);
+//    }
+
+    drawMap = new FloatPixelMap(self->pix_map, invert);
 
     // create the texture object if necessary
     if (self->map2dtexture == NULL || (drawMap->dimensions[0] != self->textureSize[0] || drawMap->dimensions[1] != self->textureSize[1])) {
@@ -176,7 +185,7 @@ static void on_load_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user
     return;
 
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
-  bot_gtk_param_widget_load_from_key_file(self->pw, keyfile, RENDERER_NAME);
+  bot_gtk_param_widget_load_from_key_file(self->pw, keyfile, self->renderer.name);
 }
 
 static void on_save_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user)
@@ -185,7 +194,7 @@ static void on_save_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user
     return;
 
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
-  bot_gtk_param_widget_save_to_key_file(self->pw, keyfile, RENDERER_NAME);
+  bot_gtk_param_widget_save_to_key_file(self->pw, keyfile, self->renderer.name);
 }
 
 static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, void *user)
@@ -196,7 +205,8 @@ static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, voi
 }
 
 static BotRenderer* 
-renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel)
+renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel,
+    const char* renderer_name)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) calloc(1, sizeof(OccMapRendererPixelMap));
   BotRenderer *renderer = &self->renderer;
@@ -206,12 +216,12 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   renderer->draw = PixelMap_draw;
   renderer->destroy = PixelMap_free;
   renderer->widget = gtk_vbox_new(FALSE, 0);
-  renderer->name = (char *) RENDERER_NAME;
+  renderer->name = (char *) renderer_name; //(char *) DEFAULT_RENDERER_NAME;
   renderer->user = self;
   renderer->enabled = 1;
 
   BotEventHandler *ehandler = &self->ehandler;
-  ehandler->name = (char *) RENDERER_NAME;
+  ehandler->name = (char *) self->renderer.name;
   ehandler->enabled = 1;
   ehandler->pick_query = NULL;
   ehandler->key_press = key_press;
@@ -246,9 +256,10 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
 
 extern "C" 
 void 
-occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel)
+occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel,
+    const char* renderer_name)
 {
-  BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm_channel);
+  BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm_channel, renderer_name);
   bot_viewer_add_renderer(viewer, renderer, render_priority);
 }
 
@@ -260,5 +271,5 @@ extern "C"
 void 
 add_renderer_to_plugin_viewer(BotViewer *viewer, int render_priority)
 {
-  occ_map_pixel_map_add_renderer_to_viewer(viewer, render_priority, NULL);
+  occ_map_pixel_map_add_renderer_to_viewer(viewer, render_priority, NULL, DEFAULT_RENDERER_NAME);
 }
