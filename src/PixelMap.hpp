@@ -7,8 +7,7 @@
 #include <assert.h>
 #include <fstream>
 
-namespace occ_map
-{
+namespace occ_map {
 
 template<class T>
 class PixelMap {
@@ -26,11 +25,15 @@ public:
   PixelMap<T> (const double _xy0[2], const double _xy1[2], double mPP, T initValue = 0, bool allocate_data = true) :
     metersPerPixel(mPP), msg(NULL), data(NULL)
   {
-    memcpy(xy0, _xy0, 2 * sizeof(double));
-    memcpy(xy1, _xy1, 2 * sizeof(double));
+    // make bottom right align with pixels
+    xy0[0] = floor((1.0 / metersPerPixel) * _xy0[0]) * metersPerPixel;
+    xy0[1] = floor((1.0 / metersPerPixel) * _xy0[1]) * metersPerPixel;
 
-    dimensions[0] = ceil((1.0 / metersPerPixel) * (xy1[0] - xy0[0]));
-    dimensions[1] = ceil((1.0 / metersPerPixel) * (xy1[1] - xy0[1]));
+    //memcpy(xy0, _xy0, 2 * sizeof(double));
+    //memcpy(xy1, _xy1, 2 * sizeof(double));
+
+    dimensions[0] = ceil(floor(100 * (1.0 / metersPerPixel) * (_xy1[0] - xy0[0])) / 100); //multiply by 100 and take floor to avoid machine
+    dimensions[1] = ceil(floor(100 * (1.0 / metersPerPixel) * (_xy1[1] - xy0[1])) / 100); //precision causing different sized maps
 
     //make top right align with pixels
     xy1[0] = xy0[0] + dimensions[0] * metersPerPixel;
@@ -75,7 +78,7 @@ public:
    * Constructor from a message
    */
   PixelMap<T> (const occ_map_pixel_map_t * _msg) :
-    msg(NULL),data(NULL)
+    msg(NULL), data(NULL)
   {
     set_from_pixel_map_t(_msg);
   }
@@ -84,16 +87,16 @@ public:
    * Constructor from a file (created with "saveToFile")
    */
   PixelMap<T> (const char * name) :
-    msg(NULL),data(NULL)
+    msg(NULL), data(NULL)
   {
     std::ifstream ifs(name, std::ios::binary);
     int sz;
     ifs >> sz;
-    char * data = (char *) malloc(sz* sizeof(char));
-    ifs.read(data, sz*sizeof(char));
+    char * data = (char *) malloc(sz * sizeof(char));
+    ifs.read(data, sz * sizeof(char));
     ifs.close();
     occ_map_pixel_map_t tmpmsg;
-    occ_map_pixel_map_t_decode(data,0,sz,&tmpmsg);
+    occ_map_pixel_map_t_decode(data, 0, sz, &tmpmsg);
     set_from_pixel_map_t(&tmpmsg);
     occ_map_pixel_map_t_decode_cleanup(&tmpmsg);
     free(data);
@@ -126,8 +129,8 @@ public:
 
   inline void worldToTable(const double xy[2], int ixy[2]) const
   {
-    ixy[0] = clamp_value(round((xy[0] - xy0[0]) / metersPerPixel), 0., (double)(dimensions[0] - 1));
-    ixy[1] = clamp_value(round((xy[1] - xy0[1]) / metersPerPixel), 0., (double)(dimensions[1] - 1));
+    ixy[0] = clamp_value(round((xy[0] - xy0[0]) / metersPerPixel), 0., (double) (dimensions[0] - 1));
+    ixy[1] = clamp_value(round((xy[1] - xy0[1]) / metersPerPixel), 0., (double) (dimensions[1] - 1));
   }
 
   inline void tableToWorld(const int ixy[2], double xy[2]) const
@@ -188,7 +191,7 @@ public:
     int ind = getInd(ixy);
     data[ind] += inc;
     if (clamp_bounds != NULL) {
-      data[ind] = clamp_value(data[ind],clamp_bounds[0],clamp_bounds[1]);
+      data[ind] = clamp_value(data[ind], clamp_bounds[0], clamp_bounds[1]);
     }
   }
 
@@ -317,7 +320,7 @@ public:
 
     num_cells = dimensions[0] * dimensions[1];
     uLong uncompressed_size = num_cells * sizeof(T);
-    data = (T*) realloc(data,uncompressed_size);
+    data = (T*) realloc(data, uncompressed_size);
     if (_msg->compressed) {
       uLong uncompress_size_result = uncompressed_size;
       uLong uncompress_return = uncompress((Bytef *) data, (uLong *) &uncompress_size_result, (Bytef *) _msg->mapData,
@@ -333,12 +336,12 @@ public:
     }
   }
 
-
-  void saveToFile(const char * name){
+  void saveToFile(const char * name)
+  {
     const occ_map_pixel_map_t * msg = get_pixel_map_t(0);
     int sz = occ_map_pixel_map_t_encoded_size(msg);
-    char * buf = (char *) malloc(sz*sizeof(char));
-    occ_map_pixel_map_t_encode(buf,0,sz,msg);
+    char * buf = (char *) malloc(sz * sizeof(char));
+    occ_map_pixel_map_t_encode(buf, 0, sz, msg);
     std::ofstream ofs(name, std::ios::binary);
     ofs << sz;
     ofs.write(buf, sz);
@@ -348,9 +351,9 @@ public:
 
   inline T clamp_value(T x, T min, T max) const
   {
-    if(x < min)
+    if (x < min)
       return min;
-    if(x > max)
+    if (x > max)
       return max;
     return x;
   }
