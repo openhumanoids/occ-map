@@ -341,42 +341,42 @@ public:
 
     num_cells = dimensions[0] * dimensions[1];
     int type_size = 0;
-    if (msg->data_type > 0) {
+    if (_msg->data_type > 0) {
       const std::type_info& type = typeid(T);
-      if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT && type != typeid(float)) {
-        fprintf(stderr, "message has %d, not float data, not setting pixmap!\n", msg->data_type);
+      if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT && type != typeid(float)) {
+        fprintf(stderr, "message has %d, not float data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT8 && type != typeid(uint8_t)) {
-        fprintf(stderr, "message has %d, not uint8 data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT8 && type != typeid(uint8_t)) {
+        fprintf(stderr, "message has %d, not uint8 data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_DOUBLE && type != typeid(double)) {
-        fprintf(stderr, "message has %d, not double data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_DOUBLE && type != typeid(double)) {
+        fprintf(stderr, "message has %d, not double data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT32 && type != typeid(int32_t)) {
-        fprintf(stderr, "message has %d, not int32 data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT32 && type != typeid(int32_t)) {
+        fprintf(stderr, "message has %d, not int32 data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT32 && type != typeid(uint32_t)) {
-        fprintf(stderr, "message has %d, not uint32 data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT32 && type != typeid(uint32_t)) {
+        fprintf(stderr, "message has %d, not uint32 data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT16 && type != typeid(int16_t)) {
-        fprintf(stderr, "message has %d, not int16 data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT16 && type != typeid(int16_t)) {
+        fprintf(stderr, "message has %d, not int16 data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT16 && type != typeid(uint16_t)) {
-        fprintf(stderr, "message has %d, not uint16 data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT16 && type != typeid(uint16_t)) {
+        fprintf(stderr, "message has %d, not uint16 data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT8 && type != typeid(int8_t)) {
-        fprintf(stderr, "message has %d, not int8 data, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT8 && type != typeid(int8_t)) {
+        fprintf(stderr, "message has %d, not int8 data, not setting pixmap!\n", _msg->data_type);
         return;
       }
-      else {
-        fprintf(stderr, "data type of %d is unknown, not setting pixmap!\n", msg->data_type);
+      else if (_msg->data_type < 0 || _msg->data_type > OCC_MAP_PIXEL_MAP_T_TYPE_UINT8) {
+        fprintf(stderr, "data type of %d is unknown, not setting pixmap!\n", _msg->data_type);
         return;
       }
     }
@@ -396,7 +396,7 @@ public:
       }
     }
     else {
-      assert((uLong)_msg->datasize == uncompressed_size);
+      assert((uLong) _msg->datasize == uncompressed_size);
       memcpy(data, _msg->mapData, uncompressed_size);
     }
   }
