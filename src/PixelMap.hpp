@@ -6,6 +6,7 @@
 #include <math.h>
 #include <assert.h>
 #include <fstream>
+#include <typeinfo>
 
 namespace occ_map {
 
@@ -307,6 +308,26 @@ public:
     //    fprintf(stderr, "uncompressed_size=%ld compressed_size=%ld\n", uncompressed_size, compress_buf_size);
     msg->datasize = compress_buf_size;
     msg->compressed = 1;
+
+    //set the data_type
+    const std::type_info& type = typeid(T);
+    if (type == typeid(float))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT;
+    else if (type == typeid(uint8_t))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT8;
+    else if (type == typeid(double))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_DOUBLE;
+    else if (type == typeid(int32_t))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT32;
+    else if (type == typeid(uint32_t))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT32;
+    else if (type == typeid(int16_t))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT16;
+    else if (type == typeid(uint16_t))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT16;
+    else if (type == typeid(int8_t))
+      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT8;
+
     msg->utime = utime;
     return msg;
 
@@ -319,6 +340,50 @@ public:
     memcpy(dimensions, _msg->dimensions, 2 * sizeof(int));
 
     num_cells = dimensions[0] * dimensions[1];
+    int type_size = 0;
+    if (msg->data_type > 0) {
+      const std::type_info& type = typeid(T);
+      if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT && type != typeid(float)) {
+        fprintf(stderr, "message has %d, not float data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT8 && type != typeid(uint8_t)) {
+        fprintf(stderr, "message has %d, not uint8 data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_DOUBLE && type != typeid(double)) {
+        fprintf(stderr, "message has %d, not double data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT32 && type != typeid(int32_t)) {
+        fprintf(stderr, "message has %d, not int32 data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT32 && type != typeid(uint32_t)) {
+        fprintf(stderr, "message has %d, not uint32 data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT16 && type != typeid(int16_t)) {
+        fprintf(stderr, "message has %d, not int16 data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT16 && type != typeid(uint16_t)) {
+        fprintf(stderr, "message has %d, not uint16 data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT8 && type != typeid(int8_t)) {
+        fprintf(stderr, "message has %d, not int8 data, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+      else {
+        fprintf(stderr, "data type of %d is unknown, not setting pixmap!\n", msg->data_type);
+        return;
+      }
+    }
+    else {
+      fprintf(stderr, "data type is 0, lets hope it's correct!\n");
+    }
+
     uLong uncompressed_size = num_cells * sizeof(T);
     data = (T*) realloc(data, uncompressed_size);
     if (_msg->compressed) {
@@ -362,6 +427,7 @@ public:
 //typedefs for ease of use
 typedef PixelMap<float> FloatPixelMap;
 typedef PixelMap<int32_t> IntPixelMap;
+typedef PixelMap<uint8_t> Uint8PixelMap;
 
 }
 

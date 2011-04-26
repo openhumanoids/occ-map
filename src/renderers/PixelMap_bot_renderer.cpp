@@ -40,26 +40,41 @@ struct _OccMapRendererPixelMap {
   BotGtkParamWidget *pw;
   GtkWidget *label;
   BotViewer *viewer;
-  FloatPixelMap *pix_map;
+  Uint8PixelMap *pix_map;
   BotGlTexture *map2dtexture;
   int textureSize[2];
 };
 
 static void upload_map_texture(OccMapRendererPixelMap *self);
 
+uint8_t floatToUint8(float v)
+{
+  return v * 255.0;
+}
+
 static void pixel_map_handler(const lcm_recv_buf_t *rbuf, const char *channel, const occ_map_pixel_map_t *msg,
     void *user)
 {
-  static occ_map_pixel_map_t* staticmsg = NULL;
-  if (staticmsg != NULL) {
-    occ_map_pixel_map_t_destroy(staticmsg);
-  }
-  staticmsg = occ_map_pixel_map_t_copy(msg);
-
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
   if (self->pix_map != NULL)
     delete self->pix_map;
-  self->pix_map = new FloatPixelMap(msg);
+  if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT) {
+    FloatPixelMap * fmap = new FloatPixelMap(msg);
+    self->pix_map = new Uint8PixelMap(fmap, floatToUint8);
+    delete fmap;
+  }
+  else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT8) {
+    self->pix_map = new Uint8PixelMap(msg);
+  }
+  else if (msg->data_type == 0) {
+    fprintf(stderr, "Warning, pixmap datatype = 0, assuming it's a float!\n");
+    FloatPixelMap * fmap = new FloatPixelMap(msg);
+    self->pix_map = new Uint8PixelMap(fmap, floatToUint8);
+    delete fmap;
+  }
+  else {
+    fprintf(stderr, "pixmap datatype %d not handled\n", msg->data_type);
+  }
 
   upload_map_texture(self);
   bot_viewer_request_redraw(self->viewer);
@@ -78,37 +93,40 @@ static float shift_unexplored_and_invert(float v)
   return 1 - shift_unexplored(v);
 }
 
-static float invert(float v) {
-  return 1 - v;
+static uint8_t invert(uint8_t v)
+{
+  return 255 - v;
 }
 
 static void upload_map_texture(OccMapRendererPixelMap *self)
 {
 
   if (self->pix_map != NULL) {
-    FloatPixelMap * drawMap=NULL;
+    Uint8PixelMap * drawMap = NULL;
 
     //TBD - we shouldn't be doing this anymore
     // makes assumptions about pixelmap format
-//    if (!bot_gtk_param_widget_get_bool(self->pw, PARAM_COLOR_MAP)) {
-//      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored_and_invert);
-//    }
-//    else {
-//      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored);
-//    }
+    //    if (!bot_gtk_param_widget_get_bool(self->pw, PARAM_COLOR_MAP)) {
+    //      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored_and_invert);
+    //    }
+    //    else {
+    //      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored);
+    //    }
 
-    drawMap = new FloatPixelMap(self->pix_map, invert);
+    drawMap = new Uint8PixelMap(self->pix_map, invert);
 
     // create the texture object if necessary
-    if (self->map2dtexture == NULL || (drawMap->dimensions[0] != self->textureSize[0] || drawMap->dimensions[1] != self->textureSize[1])) {
+    if (self->map2dtexture == NULL || (drawMap->dimensions[0] != self->textureSize[0] || drawMap->dimensions[1]
+        != self->textureSize[1])) {
       if (self->map2dtexture != NULL)
         bot_gl_texture_free(self->map2dtexture);
-      int data_size = drawMap->num_cells * sizeof(float);
+      int data_size = drawMap->num_cells * sizeof(uint8_t);
       self->map2dtexture = bot_gl_texture_new(drawMap->dimensions[0], drawMap->dimensions[1], data_size);
-      self->textureSize[0]=drawMap->dimensions[0];
-      self->textureSize[1]=drawMap->dimensions[1];
+      self->textureSize[0] = drawMap->dimensions[0];
+      self->textureSize[1] = drawMap->dimensions[1];
     }
-    bot_gl_texture_upload(self->map2dtexture, GL_LUMINANCE, GL_FLOAT, drawMap->dimensions[0] * sizeof(float), drawMap->data);
+    bot_gl_texture_upload(self->map2dtexture, GL_LUMINANCE, GL_UNSIGNED_BYTE, drawMap->dimensions[0] * sizeof(uint8_t),
+        drawMap->data);
     delete drawMap;
   }
 
@@ -156,20 +174,20 @@ static void PixelMap_free(BotRenderer *renderer)
   free(renderer);
 }
 
-static int mouse_press(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3], const double ray_dir[3],
-    const GdkEventButton *event)
+static int mouse_press(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3],
+    const double ray_dir[3], const GdkEventButton *event)
 {
   return 1;
 }
 
-static int mouse_release(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3], const double ray_dir[3],
-    const GdkEventButton *event)
+static int mouse_release(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3],
+    const double ray_dir[3], const GdkEventButton *event)
 {
   return 0;
 }
 
-static int mouse_motion(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3], const double ray_dir[3],
-    const GdkEventMotion *event)
+static int mouse_motion(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3],
+    const double ray_dir[3], const GdkEventMotion *event)
 {
   return 1;
 }
@@ -204,9 +222,8 @@ static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, voi
   bot_viewer_request_redraw(self->viewer);
 }
 
-static BotRenderer* 
-renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel,
-    const char* renderer_name)
+static BotRenderer*
+renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel, const char* renderer_name)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) calloc(1, sizeof(OccMapRendererPixelMap));
   BotRenderer *renderer = &self->renderer;
@@ -248,16 +265,14 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   g_signal_connect(G_OBJECT(viewer), "save-preferences", G_CALLBACK(on_save_preferences), self);
 
   // pick a default channel if none specified
-  if(!lcm_channel || !strlen(lcm_channel))
+  if (!lcm_channel || !strlen(lcm_channel))
     lcm_channel = "PIXEL_MAP";
   occ_map_pixel_map_t_subscribe(self->lc, lcm_channel, pixel_map_handler, self);
   return &self->renderer;
 }
 
-extern "C" 
-void 
-occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel,
-    const char* renderer_name)
+extern "C" void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority,
+    const char* lcm_channel, const char* renderer_name)
 {
   BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm_channel, renderer_name);
   bot_viewer_add_renderer(viewer, renderer, render_priority);
@@ -267,9 +282,7 @@ occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority,
  * setup_renderer:
  * Generic renderer add function for use as a dynamically loaded plugin
  */
-extern "C" 
-void 
-add_renderer_to_plugin_viewer(BotViewer *viewer, int render_priority)
+extern "C" void add_renderer_to_plugin_viewer(BotViewer *viewer, int render_priority)
 {
   occ_map_pixel_map_add_renderer_to_viewer(viewer, render_priority, NULL, DEFAULT_RENDERER_NAME);
 }
