@@ -90,17 +90,7 @@ public:
   PixelMap<T> (const char * name) :
     msg(NULL), data(NULL)
   {
-    std::ifstream ifs(name, std::ios::binary);
-    int sz;
-    ifs >> sz;
-    char * data = (char *) malloc(sz * sizeof(char));
-    ifs.read(data, sz * sizeof(char));
-    ifs.close();
-    occ_map_pixel_map_t tmpmsg;
-    occ_map_pixel_map_t_decode(data, 0, sz, &tmpmsg);
-    set_from_pixel_map_t(&tmpmsg);
-    occ_map_pixel_map_t_decode_cleanup(&tmpmsg);
-    free(data);
+    loadFromFile(name);
   }
 
   ~PixelMap<T> ()
@@ -286,6 +276,104 @@ public:
     }
   }
 
+  inline bool collisionCheck(const double start[2], const double end[2], T occ_thresh, double collisionPoint[2] = NULL )
+  {
+    int istart[2], iend[2], icollision[2];
+    worldToTable(start, istart);
+    worldToTable(end, iend);
+    bool collision = collisionCheck(istart, iend, occ_thresh, icollision);
+    if (collision && collisionPoint!=NULL)
+      tableToWorld(icollision,collisionPoint);
+    return collision;
+  }
+
+  bool collisionCheck(const int start[2], const int end[2], T occ_thresh, int collisionPoint[2] = NULL )
+  {
+    int curr[2] = { start[0], start[1] };
+    bool collision = false;
+
+    // normalize
+    int xstep = 1;
+    int ystep = 1;
+    int dx = end[0] - start[0];
+    if (dx < 0) {
+      dx = -dx;
+      xstep = -1;
+    }
+    int dy = end[1] - start[1];
+    if (dy < 0) {
+      dy = -dy;
+      ystep = -1;
+    }
+
+    if (dx == 0) {
+      // vertical
+      for (int i = 0; i <= dy; i++) {
+        if (readValue(curr)>occ_thresh){
+          collision = true;
+          break;
+        }
+        curr[1] = curr[1] + ystep;
+      }
+    }
+    else if (dy == 0) {
+      // horizontal
+      for (int i = 0; i <= dx; i++) {
+        if (readValue(curr)>occ_thresh){
+          collision = true;
+          break;
+        }
+        curr[0] += xstep;
+      }
+    }
+    else if (dx > dy) {
+      // bresenham, horizontal slope
+      int n = dx;
+      dy += dy;
+      int e = dy - dx;
+      dx += dx;
+
+      for (int i = 0; i <= n; i++) {
+        if (readValue(curr)>occ_thresh){
+          collision = true;
+          break;
+        }
+        if (e >= 0) {
+          curr[1] += ystep;
+          e -= dx;
+        }
+        e += dy;
+        curr[0] += xstep;
+      }
+    }
+    else {
+      // bresenham, vertical slope
+      int n = dy;
+      dx += dx;
+      int e = dx - dy;
+      dy += dy;
+
+      for (int i = 0; i <= n; i++) {
+        if (readValue(curr)>occ_thresh){
+          collision = true;
+          break;
+        }
+        if (e >= 0) {
+          curr[0] += xstep;
+          e -= dy;
+        }
+        e += dx;
+        curr[1] += ystep;
+      }
+    }
+
+    if (collisionPoint!=NULL){
+      collisionPoint[0] = curr[0];
+      collisionPoint[1] = curr[1];
+    }
+    return collision;
+  }
+
   const occ_map_pixel_map_t *get_pixel_map_t(int64_t utime)
   {
     if (msg == NULL)
@@ -413,6 +501,27 @@ public:
     ofs.close();
     free(buf);
   }
+
+  static occ_map_pixel_map_t * load_pixel_map_t_from_file(const char * name){
+    std::ifstream ifs(name, std::ios::binary);
+    int sz;
+    ifs >> sz;
+    char * tmpdata = (char *) malloc(sz * sizeof(char));
+    ifs.read(tmpdata, sz * sizeof(char));
+    ifs.close();
+    occ_map_pixel_map_t * ret_msg = (occ_map_pixel_map_t *) calloc(1,sizeof(occ_map_pixel_map_t));
+    occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg);
+    free(tmpdata);
+    return ret_msg;
+  }
+
+  void loadFromFile(const char * name)
+  {
+    occ_map_pixel_map_t * tmpmsg = load_pixel_map_t_from_file(name);
+    set_from_pixel_map_t(tmpmsg);
+    occ_map_pixel_map_t_destroy(tmpmsg);
+  }
+
 
   inline T clamp_value(T x, T min, T max) const
   {
