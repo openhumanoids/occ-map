@@ -18,3 +18,4 @@ pods_install_pkg_config_file(occ-map
 
 add_subdirectory(src/renderers)
 add_subdirectory(src/test)
+add_subdirectory(src/map_server)
