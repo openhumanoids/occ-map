@@ -120,8 +120,8 @@ public:
 
   inline void worldToTable(const double xy[2], int ixy[2]) const
   {
-    ixy[0] = clamp_value(round((xy[0] - xy0[0]) / metersPerPixel), 0., (double) (dimensions[0] - 1));
-    ixy[1] = clamp_value(round((xy[1] - xy0[1]) / metersPerPixel), 0., (double) (dimensions[1] - 1));
+    ixy[0] = clamp_double(round((xy[0] - xy0[0]) / metersPerPixel), 0., (double) (dimensions[0] - 1));
+    ixy[1] = clamp_double(round((xy[1] - xy0[1]) / metersPerPixel), 0., (double) (dimensions[1] - 1));
   }
 
   inline void tableToWorld(const int ixy[2], double xy[2]) const
@@ -502,6 +502,7 @@ public:
     free(buf);
   }
 
+
   static occ_map_pixel_map_t * load_pixel_map_t_from_file(const char * name){
     std::ifstream ifs(name, std::ios::binary);
     int sz;
@@ -522,6 +523,15 @@ public:
     occ_map_pixel_map_t_destroy(tmpmsg);
   }
 
+
+  inline double clamp_double(double x, double min, double max) const
+  {
+    if (x < min)
+      return min;
+    if (x > max)
+      return max;
+    return x;
+  }
 
   inline T clamp_value(T x, T min, T max) const
   {
