@@ -23,7 +23,7 @@ public:
   /*
    * normal constructor
    */
-  PixelMap<T> (const double _xy0[2], const double _xy1[2], double mPP, T initValue = 0, bool allocate_data = true) :
+  PixelMap<T> (const double _xy0[2], const double _xy1[2], double mPP, T initValue = T(), bool allocate_data = true) :
     metersPerPixel(mPP), msg(NULL), data(NULL)
   {
     // make bottom right align with pixels
@@ -46,7 +46,7 @@ public:
     }
     num_cells = dimensions[0] * dimensions[1];
     if (allocate_data) {
-      data = (T *) malloc(num_cells * sizeof(T));
+      data = new T[num_cells];
       reset(initValue);
     }
   }
@@ -63,7 +63,7 @@ public:
 
     memcpy(dimensions, to_copy->dimensions, 2 * sizeof(int));
     num_cells = to_copy->num_cells;
-    data = (T *) malloc(num_cells * sizeof(T));
+    data = new T[num_cells];
     int ixy[2];
     for (ixy[1] = 0; ixy[1] < dimensions[1]; ixy[1]++) {
       for (ixy[0] = 0; ixy[0] < dimensions[0]; ixy[0]++) {
@@ -96,7 +96,7 @@ public:
   ~PixelMap<T> ()
   {
     if (data != NULL)
-      free(data);
+      delete[] data;
   }
 
   void reset(T resetVal = 0)
@@ -152,13 +152,13 @@ public:
       return true;
   }
 
-  inline T readValue(const int ixy[2]) const
+  inline T & readValue(const int ixy[2]) const
   {
     int ind = getInd(ixy);
     return data[ind];
 
   }
-  inline T readValue(const double xy[2]) const
+  inline T &readValue(const double xy[2]) const
   {
     int ixy[2];
     worldToTable(xy, ixy);
