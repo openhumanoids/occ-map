@@ -1,4 +1,5 @@
 find_package(PkgConfig REQUIRED)
+find_package(OpenGL REQUIRED)
 pkg_check_modules(BOT2_VIS bot2-vis)
 if(NOT BOT2_VIS_FOUND)
     message("bot2-vis not found.  Not building occ-map-renderers")
@@ -8,6 +9,9 @@ endif(NOT BOT2_VIS_FOUND)
 add_library(occ-map-renderers SHARED 
     PixelMap_bot_renderer.cpp
     VoxelMap_bot_renderer.cpp)
+
+target_link_libraries (occ-map-renderers
+    ${OPENGL_LIBRARIES})
 
 pods_use_pkg_config_packages(occ-map-renderers 
     lcm 
