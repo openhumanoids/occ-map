@@ -21,7 +21,7 @@ public:
   T * data;
   occ_map_voxel_map_t *msg;
 
-  VoxelMap<T> (const double _xyz0[3], const double _xyz1[3], const double _metersPerPixel[3], T initValue = 0,
+  VoxelMap<T> (const double _xyz0[3], const double _xyz1[3], const double _metersPerPixel[3], T initValue = T(),
       bool allocate_data = true) :
     data(NULL), msg(NULL)
   {
@@ -36,7 +36,7 @@ public:
       num_cells *= dimensions[i];
     }
     if (allocate_data) {
-      data = (T *) calloc(num_cells, sizeof(T));
+      data = new T[num_cells];
       reset(initValue);
     }
   }
@@ -53,7 +53,7 @@ public:
     num_cells = 1;
     for (int i = 0; i < 3; i++)
       num_cells *= dimensions[i];
-    data = (T *) malloc(num_cells * sizeof(T));
+    data = new T[num_cells];
     int ixyz[3];
     for (ixyz[2] = 0; ixyz[2] < dimensions[2]; ixyz[2]++) {
       for (ixyz[1] = 0; ixyz[1] < dimensions[1]; ixyz[1]++) {
@@ -93,7 +93,7 @@ public:
 
   virtual ~VoxelMap<T> ()
   {
-    free(data);
+    delete[] data;
   }
 
   //get linear index into storage arrays
@@ -326,7 +326,7 @@ public:
     for (int i = 0; i < 3; i++)
       num_cells *= dimensions[i];
     uLong uncompressed_size = num_cells * sizeof(T);
-    data = (T *) malloc(uncompressed_size);
+    data = (T *) malloc(uncompressed_size); //TODO: does this cause problems with the delete[] in the destructor??
 
     if (_msg->compressed) {
       uLong uncompress_size_result = uncompressed_size;

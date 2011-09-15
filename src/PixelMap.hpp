@@ -473,7 +473,7 @@ public:
     }
 
     uLong uncompressed_size = num_cells * sizeof(T);
-    data = (T*) realloc(data, uncompressed_size);
+    data = (T*) realloc(data, uncompressed_size); //TODO: does this cause problems with the delete[] in the destructor??
     if (_msg->compressed) {
       uLong uncompress_size_result = uncompressed_size;
       uLong uncompress_return = uncompress((Bytef *) data, (uLong *) &uncompress_size_result, (Bytef *) _msg->mapData,
