@@ -39,8 +39,7 @@ typedef enum _color_mode_t {
 } color_mode_t;
 
 enum {
-  RENDER_MODE_POINTS,
-  RENDER_MODE_BOXES
+  RENDER_MODE_POINTS, RENDER_MODE_BOXES
 };
 
 typedef struct _OccMapRendererVoxelMap OccMapRendererVoxelMap;
@@ -73,6 +72,9 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
 
   double cutoff = bot_gtk_param_widget_get_double(self->pw, PARAM_CUTOFF);
 
+  double occ_thresh = 0.5 + cutoff;
+  double free_thresh = 0.5 - cutoff;
+
   int color_mod = bot_gtk_param_widget_get_enum(self->pw, PARAM_COLOR_MODE);
 
   self->numPointsToDraw = 0;
@@ -81,10 +83,8 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
     for (ixyz[1] = 0; ixyz[1] < self->voxmap->dimensions[1]; ixyz[1]++) {
       for (ixyz[0] = 0; ixyz[0] < self->voxmap->dimensions[0]; ixyz[0]++) {
         float likelihood = self->voxmap->readValue(ixyz);
-//        if (likelihood>.01 && likelihood<.99)
-//          fprintf(stderr,"%f ",likelihood);
-        if ((show_occ && likelihood >= 0 && likelihood > cutoff) || (show_free && likelihood >= 0 && likelihood
-            < cutoff)) {
+        if ((show_occ && likelihood <= 1.0 && likelihood > occ_thresh) || (show_free && likelihood >= 0 && likelihood
+            < free_thresh)) {
           self->numPointsToDraw++;
         }
 
@@ -109,8 +109,9 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
     for (ixyz[1] = 0; ixyz[1] < self->voxmap->dimensions[1]; ixyz[1]++) {
       for (ixyz[0] = 0; ixyz[0] < self->voxmap->dimensions[0]; ixyz[0]++) {
         float likelihood = self->voxmap->readValue(ixyz);
-        if ((show_occ && likelihood >= 0 && likelihood > cutoff) || (show_free && likelihood >= 0 && likelihood
-            < cutoff)) {
+        if ((show_occ && likelihood <= 1.0 && likelihood > occ_thresh) || (show_free && likelihood >= 0 && likelihood
+            < free_thresh)) {
+
           double * pointP = self->pointBuffer + (3 * numLoadedPoints); //pointer into the vertex buffer
           self->voxmap->tableToWorld(ixyz, pointP);
           float * colorP = self->colorBuffer + (color_size * numLoadedPoints); //pointer into the color buffer
@@ -131,7 +132,7 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
             break;
           }
           if (show_alpha)
-            colorP[3] = (likelihood-cutoff)/(1-cutoff);
+            colorP[3] = (likelihood - cutoff) / (1 - cutoff);
 
           numLoadedPoints++;
         }
@@ -141,8 +142,7 @@ static void update_vertex_buffers(OccMapRendererVoxelMap *self)
   self->data_dirty = true;
 }
 
-static void voxmap_handler(const lcm_recv_buf_t *rbuf, const char *channel, 
-        const occ_map_voxel_map_t *msg, void *user)
+static void voxmap_handler(const lcm_recv_buf_t *rbuf, const char *channel, const occ_map_voxel_map_t *msg, void *user)
 {
   OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
 
@@ -160,10 +160,10 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
     return;
 
   // do we have new voxel data?
-  if(self->data_dirty) {
-    if(self->voxelmap_dl) {
+  if (self->data_dirty) {
+    if (self->voxelmap_dl) {
       glDeleteLists(self->voxelmap_dl, 1);
-    } 
+    }
     self->voxelmap_dl = glGenLists(1);
     glNewList(self->voxelmap_dl, GL_COMPILE_AND_EXECUTE);
 
@@ -175,10 +175,10 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
 
     int rmode = bot_gtk_param_widget_get_enum(self->pw, PARAM_RENDER_MODE);
 
-    if(rmode == RENDER_MODE_POINTS) {
+    if (rmode == RENDER_MODE_POINTS) {
       glPointSize(bot_gtk_param_widget_get_int(self->pw, PARAM_POINT_SIZE));
 
-#if 0
+#if 1
       // render using vertex arrays
       glEnableClientState(GL_VERTEX_ARRAY);
       glEnableClientState(GL_COLOR_ARRAY);
@@ -197,38 +197,39 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
       glDisableClientState(GL_COLOR_ARRAY);
 #else
       glBegin(GL_POINTS);
-      if(bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA)) {
-        for(int i=0; i<self->numPointsToDraw; i++) {
-          glColor4fv(self->colorBuffer + 4*i);
-          glVertex3dv(self->pointBuffer + 3*i);
+      if (bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA)) {
+        for (int i = 0; i < self->numPointsToDraw; i++) {
+          glColor4fv(self->colorBuffer + 4 * i);
+          glVertex3dv(self->pointBuffer + 3 * i);
         }
-      } else {
-        for(int i=0; i<self->numPointsToDraw; i++) {
-          glColor3fv(self->colorBuffer + 3*i);
-          glVertex3dv(self->pointBuffer + 3*i);
+      }
+      else {
+        for (int i = 0; i < self->numPointsToDraw; i++) {
+          glColor3fv(self->colorBuffer + 3 * i);
+          glVertex3dv(self->pointBuffer + 3 * i);
         }
       }
       glEnd();
-    } else {
+    }
+    else {
       int use_alpha = bot_gtk_param_widget_get_bool(self->pw, PARAM_SHOW_ALPHA);
-      double mpp[3] = {
-        self->voxmap->metersPerPixel[0],
+      double mpp[3] = {self->voxmap->metersPerPixel[0],
         self->voxmap->metersPerPixel[1],
-        self->voxmap->metersPerPixel[2]
-      };
+        self->voxmap->metersPerPixel[2]};
       glEnable(GL_LIGHTING);
-//      glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+      //      glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
       glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
       glEnable(GL_COLOR_MATERIAL);
-      glEnable (GL_RESCALE_NORMAL);
-      for(int i=0; i<self->numPointsToDraw; i++) {
-        double* p = self->pointBuffer + 3*i;
-        if(use_alpha) {
-          float* c = self->colorBuffer + 4*i;
+      glEnable(GL_RESCALE_NORMAL);
+      for (int i = 0; i < self->numPointsToDraw; i++) {
+        double* p = self->pointBuffer + 3 * i;
+        if (use_alpha) {
+          float* c = self->colorBuffer + 4 * i;
           glColor4fv(c);
-        } else {
-          float* c = self->colorBuffer + 3*i;
-//          glColor3f(c[0] * 0.1, c[1] * 0.1, c[2] * 0.1);
+        }
+        else {
+          float* c = self->colorBuffer + 3 * i;
+          //          glColor3f(c[0] * 0.1, c[1] * 0.1, c[2] * 0.1);
           glColor3fv(c);
         }
         glPushMatrix();
@@ -240,14 +241,15 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
       glDisable(GL_RESCALE_NORMAL);
       glDisable(GL_COLOR_MATERIAL);
       glDisable(GL_LIGHTING);
-    }
 #endif
+    }
 
     glPopAttrib();
 
-    glEndList ();
+    glEndList();
     self->data_dirty = false;
-  } else {
+  }
+  else {
     glCallList(self->voxelmap_dl);
   }
 }
@@ -265,12 +267,55 @@ static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, voi
   OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
   if (self->voxmap != NULL)
     update_vertex_buffers(self);
-  if(!strcmp(name, PARAM_Z_MAX_CUTOFF))
+  if (!strcmp(name, PARAM_Z_MAX_CUTOFF))
     update_vertex_buffers(self);
   bot_viewer_request_redraw(self->viewer);
 }
+static void on_load_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user)
+{
+  if (!viewer)
+    return;
 
-static BotRenderer* 
+  OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
+  bot_gtk_param_widget_load_from_key_file(self->pw, keyfile, RENDERER_NAME);
+}
+
+static void on_save_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user)
+{
+  if (!viewer)
+    return;
+
+  OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) user;
+  bot_gtk_param_widget_save_to_key_file(self->pw, keyfile, RENDERER_NAME);
+}
+
+static void on_clear_button(GtkWidget *button, OccMapRendererVoxelMap *self)
+{
+  if (self->voxmap != NULL) {
+    delete self->voxmap;
+    self->voxmap = NULL;
+  }
+  if (self->pointBuffer != NULL) {
+    free(self->pointBuffer);
+    self->pointBuffer = NULL;
+    self->pointBuffSize = 0;
+  }
+  if (self->colorBuffer != NULL) {
+    free(self->colorBuffer);
+    self->colorBuffer = NULL;
+  }
+  if (self->voxelmap_dl) {
+    glDeleteLists(self->voxelmap_dl, 1);
+    self->voxelmap_dl = 0;
+  }
+  self->data_dirty = false;
+
+  if (!self->viewer)
+    return;
+  bot_viewer_request_redraw(self->viewer);
+}
+
+static BotRenderer*
 renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel)
 {
   OccMapRendererVoxelMap *self = (OccMapRendererVoxelMap*) calloc(1, sizeof(OccMapRendererVoxelMap));
@@ -293,16 +338,11 @@ renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   self->pw = BOT_GTK_PARAM_WIDGET(bot_gtk_param_widget_new());
   renderer->widget = gtk_vbox_new(FALSE, 0);
   gtk_box_pack_start(GTK_BOX(renderer->widget), GTK_WIDGET(self->pw), TRUE, TRUE, 0);
-  bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
-          COLOR_MODE_Z, 
-          "Height", COLOR_MODE_Z,
-          "Drab", COLOR_MODE_DRAB, NULL);
+  bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_MENU, COLOR_MODE_Z, "Height",
+      COLOR_MODE_Z, "Drab", COLOR_MODE_DRAB, NULL);
 
-  bot_gtk_param_widget_add_enum(self->pw, PARAM_RENDER_MODE, BOT_GTK_PARAM_WIDGET_MENU, 
-      RENDER_MODE_BOXES, 
-          "Points", RENDER_MODE_POINTS,
-          "Boxes", RENDER_MODE_BOXES, 
-          NULL);
+  bot_gtk_param_widget_add_enum(self->pw, PARAM_RENDER_MODE, BOT_GTK_PARAM_WIDGET_MENU, RENDER_MODE_BOXES, "Points",
+      RENDER_MODE_POINTS, "Boxes", RENDER_MODE_BOXES, NULL);
 
   bot_gtk_param_widget_add_int(self->pw, PARAM_POINT_SIZE, BOT_GTK_PARAM_WIDGET_SLIDER, 1, 20, 1, 4);
 
@@ -319,21 +359,24 @@ renderer_voxel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
 
   GtkWidget *clear_button = gtk_button_new_with_label("Clear memory");
   gtk_box_pack_start(GTK_BOX(renderer->widget), clear_button, FALSE, FALSE, 0);
+  g_signal_connect(G_OBJECT(clear_button), "clicked", G_CALLBACK(on_clear_button), self);
 
   gtk_widget_show_all(renderer->widget);
   g_signal_connect(G_OBJECT(self->pw), "changed", G_CALLBACK(on_param_widget_changed), self);
   on_param_widget_changed(self->pw, "", self);
 
+  g_signal_connect(G_OBJECT(viewer), "load-preferences", G_CALLBACK(on_load_preferences), self);
+  g_signal_connect(G_OBJECT(viewer), "save-preferences", G_CALLBACK(on_save_preferences), self);
+
   // pick a default channel if none specified
-  if(!lcm_channel || !strlen(lcm_channel))
+  if (!lcm_channel || !strlen(lcm_channel))
     lcm_channel = "VOXEL_MAP";
   occ_map_voxel_map_t_subscribe(self->lc, lcm_channel, voxmap_handler, self);
   return &self->renderer;
 }
 
-extern "C" 
-void 
-occ_map_voxel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel)
+extern "C" void occ_map_voxel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority,
+    const char* lcm_channel)
 {
   BotRenderer* renderer = renderer_voxel_map_new(viewer, render_priority, lcm_channel);
   bot_viewer_add_renderer(viewer, renderer, render_priority);
