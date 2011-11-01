@@ -305,7 +305,7 @@ public:
         Z_BEST_SPEED);
     if (compress_return != Z_OK) {
       fprintf(stderr, "ERROR: Could not compress voxel map!\n");
-      exit(1);
+      return NULL;
     }
     //    fprintf(stderr, "uncompressed_size=%ld compressed_size=%ld\n", uncompressed_size, compress_buf_size);
     msg->datasize = compress_buf_size;
@@ -334,7 +334,7 @@ public:
           (uLong) _msg->datasize);
       if (uncompress_return != Z_OK || uncompress_size_result != uncompressed_size) {
         fprintf(stderr, "ERROR uncompressing the map, ret = %lu\n", uncompress_return);
-        exit(1);
+        return;
       }
 
     }
