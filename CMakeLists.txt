@@ -12,8 +12,8 @@ pods_install_headers(src/PixelMap.hpp src/VoxelMap.hpp DESTINATION occ_map)
 
 
 pods_install_pkg_config_file(occ-map
-    LIBS -l${LCMTYPES_LIBS} -lz
-    REQUIRES lcm
+    LIBS -lz
+    REQUIRES lcm lcmtypes_occ-map
     VERSION 0.0.1)
 
 add_subdirectory(src/renderers)
