@@ -99,7 +99,7 @@ public:
       delete[] data;
   }
 
-  void reset(T resetVal = 0)
+  void reset(T resetVal = T())
   {
     if (data != NULL)
       for (int i = 0; i < num_cells; i++)
