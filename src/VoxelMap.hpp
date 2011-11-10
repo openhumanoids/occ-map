@@ -31,8 +31,8 @@ public:
 
     num_cells = 1;
     for (int i = 0; i < 3; i++) {
-      dimensions[i] = ceil((1.0 / metersPerPixel[i]) * (xyz1[i] - xyz0[i]));
-      xyz1[i] = xyz0[i] + dimensions[i] * metersPerPixel[i];
+      dimensions[i] =ceil(floor(100 * (1.0 / metersPerPixel[i]) * (xyz1[i] - xyz0[i])) / 100); //multiply by 100 and take floor to avoid machine precision issues
+      xyz1[i] = xyz0[i] + dimensions[i] * metersPerPixel[i]; //make top right align with pixel boundaries
       num_cells *= dimensions[i];
     }
     if (allocate_data) {
@@ -146,14 +146,14 @@ public:
   inline bool isInMap(const int ixyz[3]) const
   {
     for (int i = 0; i < 3; i++)
-      if (ixyz[i] < 0 || ixyz[i] >= dimensions[i] - 1)
+      if (ixyz[i] < 0 || ixyz[i] >= dimensions[i])
         return false;
     return true;
   }
   inline bool isInMap(const double xyz[3]) const
   {
     for (int i = 0; i < 3; i++)
-      if (xyz[i] <= xyz0[i] || xyz[i] >= xyz1[i])
+      if (xyz[i] < xyz0[i] || xyz[i] > xyz1[i])
         return false;
     return true;
   }

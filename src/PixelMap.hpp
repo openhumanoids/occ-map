@@ -149,7 +149,7 @@ public:
   {
     if (ixy[0] < 0 || ixy[1] < 0)
       return false;
-    else if (ixy[0] >= dimensions[0] - 1 || ixy[0] >= dimensions[1] - 1)
+    else if (ixy[0] >= dimensions[0] || ixy[0] >= dimensions[1])
       return false;
     else
       return true;
@@ -157,9 +157,9 @@ public:
 
   inline bool isInMap(double xy[2]) const
   {
-    if (xy[0] <= xy0[0] || xy[0] >= xy1[0])
+    if (xy[0] < xy0[0] || xy[0] > xy1[0])
       return false;
-    else if (xy[1] <= xy0[1] || xy[1] >= xy1[1])
+    else if (xy[1] < xy0[1] || xy[1] > xy1[1])
       return false;
     else
       return true;
