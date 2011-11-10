@@ -110,6 +110,12 @@ public:
   {
     return ixy[1] * dimensions[0] + ixy[0];
   }
+  inline int getInd(const double xy[2]) const
+  {
+    int ixy[2];
+    worldToTable(xy,ixy);
+    return getInd(ixy);
+  }
 
   inline void indToLoc(int ind, int ixy[2]) const
   {
@@ -117,6 +123,13 @@ public:
     ind -= ixy[1] * dimensions[0];
     ixy[0] = ind;
   }
+  inline void indToLoc(int ind, double xy[2]) const
+   {
+    int ixy[2];
+    indToLoc(ind,ixy);
+    tableToWorld(ixy,xy);
+   }
+
 
   inline void worldToTable(const double xy[2], int ixy[2]) const
   {
