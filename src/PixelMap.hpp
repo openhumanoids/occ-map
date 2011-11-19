@@ -289,7 +289,7 @@ public:
     }
   }
 
-  inline bool collisionCheck(const double start[2], const double end[2], T occ_thresh, double collisionPoint[2] = NULL )
+  inline bool collisionCheck(const double start[2], const double end[2], T occ_thresh, double collisionPoint[2] = NULL ) const
   {
     int istart[2], iend[2], icollision[2];
     worldToTable(start, istart);
@@ -300,7 +300,7 @@ public:
     return collision;
   }
 
-  bool collisionCheck(const int start[2], const int end[2], T occ_thresh, int collisionPoint[2] = NULL )
+  bool collisionCheck(const int start[2], const int end[2], T occ_thresh, int collisionPoint[2] = NULL ) const
   {
     int curr[2] = { start[0], start[1] };
     bool collision = false;
