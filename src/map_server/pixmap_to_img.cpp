@@ -43,5 +43,11 @@ int main(int argc, char ** argv)
   string out_fname = img_fname; //TODO: append resolution, and bounds?
   cvSaveImage(out_fname.c_str(), &cvm);
 
+  FILE *f = fopen((out_fname+".m").c_str(),"w");
+  fprintf(f,"xy0 = [%f %f]\n", map->xy0[0],map->xy0[1]);
+  fprintf(f,"xy1 = [%f %f]\n", map->xy1[0],map->xy1[1]);
+  fprintf(f,"metersPerPixel = %f\n", map->metersPerPixel);
+  fclose(f);
+
 }
 
