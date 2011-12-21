@@ -19,12 +19,13 @@ public:
   int dimensions[2];
   int num_cells;
   occ_map_pixel_map_t * msg;
+  int64_t utime;
 
   /*
    * normal constructor
    */
   PixelMap<T> (const double _xy0[2], const double _xy1[2], double mPP, T initValue = T(), bool allocate_data = true) :
-    metersPerPixel(mPP), msg(NULL), data(NULL)
+    metersPerPixel(mPP), msg(NULL), data(NULL), utime(0)
   {
     // make bottom right align with pixels
     xy0[0] = floor((1.0 / metersPerPixel) * _xy0[0]) * metersPerPixel;
@@ -56,7 +57,7 @@ public:
    */
   template<class F>
   PixelMap<T> (const PixelMap<F> * to_copy, T(*transformFunc)(F) = NULL) :
-    msg(NULL), metersPerPixel(to_copy->metersPerPixel), data(NULL)
+    msg(NULL), metersPerPixel(to_copy->metersPerPixel), data(NULL), utime(0)
   {
     memcpy(xy0, to_copy->xy0, 2 * sizeof(double));
     memcpy(xy1, to_copy->xy1, 2 * sizeof(double));
@@ -439,6 +440,7 @@ public:
     memcpy(xy1, _msg->xy1, 2 * sizeof(double));
     metersPerPixel = _msg->mpp;
     memcpy(dimensions, _msg->dimensions, 2 * sizeof(int));
+    utime = _msg->utime;
 
     num_cells = dimensions[0] * dimensions[1];
     int type_size = 0;
@@ -504,7 +506,7 @@ public:
 
   void saveToFile(const char * name)
   {
-    const occ_map_pixel_map_t * msg = get_pixel_map_t(0);
+    const occ_map_pixel_map_t * msg = get_pixel_map_t(utime);
     int sz = occ_map_pixel_map_t_encoded_size(msg);
     char * buf = (char *) malloc(sz * sizeof(char));
     occ_map_pixel_map_t_encode(buf, 0, sz, msg);
