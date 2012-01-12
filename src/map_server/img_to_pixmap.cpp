@@ -9,7 +9,7 @@ using namespace occ_map;
 
 static float uint8ToFloat(uint8_t v)
 {
-  return (float) v / 255.0;
+  return (float) 1.0 - v / 255.0;
 }
 
 void usage(char * name)
@@ -27,14 +27,18 @@ int main(int argc, char ** argv)
   string filename = argv[2];
 
   //todo: get resolution and bounds from command line
-  float resolution = .1;
+  float resolution = 1;
   double xy0[2] = { 0, 0 };
   double xy1[2] = { 0, 0 };
 
-  occ_map_pixel_map_t * pix_map_msg = FloatPixelMap::load_pixel_map_t_from_file(filename.c_str());
-
   CvMat * cvm = cvLoadImageM(img_fname.c_str());
 
+  float scaleFactor = 800.0 / (float) cvm->width;
+  CvMat * dispM = cvCreateMat(cvm->height * scaleFactor, cvm->width * scaleFactor, cvm->type);
+  cvResize(cvm, dispM);
+  cvNamedWindow("img2map");
+  cvShowImage("img2map", dispM);
+  cvWaitKey(0);
   xy1[0] = xy0[0] + resolution * cvm->cols;
   xy1[1] = xy0[1] + resolution * cvm->rows;
 
@@ -42,10 +46,12 @@ int main(int argc, char ** argv)
   int ixy[2];
   for (ixy[0] = 0; ixy[0] < u8map->dimensions[0]; ixy[0]++) {
     for (ixy[1] = 0; ixy[1] < u8map->dimensions[1]; ixy[1]++) {
-      u8map->writeValue(ixy, *cvPtr2D(cvm, ixy[1], ixy[0], NULL));
+      uint8_t val = *cvPtr2D(cvm, ixy[1], ixy[0], NULL);
+      u8map->writeValue(ixy, val);
     }
   }
   FloatPixelMap * fmap = new FloatPixelMap(u8map, uint8ToFloat);
   fmap->saveToFile(filename.c_str());
 
 }
+

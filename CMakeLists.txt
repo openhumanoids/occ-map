@@ -8,7 +8,9 @@ include(cmake/pods.cmake)
 include(cmake/lcmtypes.cmake)
 lcmtypes_build()
 
-pods_install_headers(src/PixelMap.hpp src/VoxelMap.hpp DESTINATION occ_map)
+pods_install_headers(src/PixelMap.hpp src/PixelMap.hxx
+					src/VoxelMap.hpp src/VoxelMap.hxx
+					DESTINATION occ_map)
 
 
 pods_install_pkg_config_file(occ-map

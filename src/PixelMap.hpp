@@ -13,555 +13,97 @@ namespace occ_map {
 template<class T>
 class PixelMap {
 public:
+  //metadata
   double xy0[2], xy1[2];
   double metersPerPixel;
-  T* data;
   int dimensions[2];
   int num_cells;
   occ_map_pixel_map_t * msg;
   int64_t utime;
+  // the actual storage array
+  T* data;
 
-  /*
-   * normal constructor
-   */
-  PixelMap<T> (const double _xy0[2], const double _xy1[2], double mPP, T initValue = T(), bool allocate_data = true) :
-    metersPerPixel(mPP), msg(NULL), data(NULL), utime(0)
-  {
-    // make bottom right align with pixels
-    xy0[0] = floor((1.0 / metersPerPixel) * _xy0[0]) * metersPerPixel;
-    xy0[1] = floor((1.0 / metersPerPixel) * _xy0[1]) * metersPerPixel;
+  // normal constructor
+  PixelMap<T>(const double _xy0[2], const double _xy1[2], double mPP, T initValue = T(), bool allocate_data = true);
 
-    //memcpy(xy0, _xy0, 2 * sizeof(double));
-    //memcpy(xy1, _xy1, 2 * sizeof(double));
-
-    dimensions[0] = ceil(floor(100 * (1.0 / metersPerPixel) * (_xy1[0] - xy0[0])) / 100); //multiply by 100 and take floor to avoid machine
-    dimensions[1] = ceil(floor(100 * (1.0 / metersPerPixel) * (_xy1[1] - xy0[1])) / 100); //precision causing different sized maps
-
-    //make top right align with pixels
-    xy1[0] = xy0[0] + dimensions[0] * metersPerPixel;
-    xy1[1] = xy0[1] + dimensions[1] * metersPerPixel;
-
-    if (dimensions[0] <= 0 || dimensions[1] < 0) {
-      printf("ERROR:dimensions[0] or dimensions[1] is less than 0\n");
-      return;
-    }
-    num_cells = dimensions[0] * dimensions[1];
-    if (allocate_data) {
-      data = new T[num_cells];
-      reset(initValue);
-    }
-  }
-
-  /*
-   * Copy Constructor
-   */
+  // Copy Constructor
   template<class F>
-  PixelMap<T> (const PixelMap<F> * to_copy, T(*transformFunc)(F) = NULL) :
-    msg(NULL), metersPerPixel(to_copy->metersPerPixel), data(NULL), utime(0)
-  {
-    memcpy(xy0, to_copy->xy0, 2 * sizeof(double));
-    memcpy(xy1, to_copy->xy1, 2 * sizeof(double));
+  PixelMap<T>(const PixelMap<F> * to_copy, T(*transformFunc)(F) = NULL);
 
-    memcpy(dimensions, to_copy->dimensions, 2 * sizeof(int));
-    num_cells = to_copy->num_cells;
-    data = new T[num_cells];
-    int ixy[2];
-    for (ixy[1] = 0; ixy[1] < dimensions[1]; ixy[1]++) {
-      for (ixy[0] = 0; ixy[0] < dimensions[0]; ixy[0]++) {
-        if (transformFunc != NULL)
-          writeValue(ixy, transformFunc(to_copy->readValue(ixy)));
-        else
-          writeValue(ixy, to_copy->readValue(ixy));
-      }
-    }
-  }
+  // Constructor from an lcm message
+  PixelMap<T>(const occ_map_pixel_map_t * _msg);
 
-  /*
-   * Constructor from a message
-   */
-  PixelMap<T> (const occ_map_pixel_map_t * _msg) :
-    msg(NULL), data(NULL)
-  {
-    set_from_pixel_map_t(_msg);
-  }
+  // Constructor from a file (created with "saveToFile")
+  PixelMap<T>(const char * name);
 
-  /*
-   * Constructor from a file (created with "saveToFile")
-   */
-  PixelMap<T> (const char * name) :
-    msg(NULL), data(NULL)
-  {
-    loadFromFile(name);
-  }
+  ~PixelMap<T>();
 
-  ~PixelMap<T> ()
-  {
-    if (data != NULL)
-      delete[] data;
-  }
+  // set all values in the map to 0
+  void reset(T resetVal = T());
 
-  void reset(T resetVal = T())
-  {
-    if (data != NULL)
-      for (int i = 0; i < num_cells; i++)
-        data[i] = resetVal;
-  }
+  //get linear index into storage arrays
+  inline int getInd(const int ixy[2]) const;
+  inline int getInd(const double xy[2]) const;
 
-  inline int getInd(const int ixy[2]) const
-  {
-    return ixy[1] * dimensions[0] + ixy[0];
-  }
-  inline int getInd(const double xy[2]) const
-  {
-    int ixy[2];
-    worldToTable(xy,ixy);
-    return getInd(ixy);
-  }
+  // Map backwards from an index to a location
+  inline void indToLoc(int ind, int ixy[2]) const;
+  inline void indToLoc(int ind, double xy[2]) const;
 
-  inline void indToLoc(int ind, int ixy[2]) const
-  {
-    ixy[1] = ind / (dimensions[0]);
-    ind -= ixy[1] * dimensions[0];
-    ixy[0] = ind;
-  }
-  inline void indToLoc(int ind, double xy[2]) const
-   {
-    int ixy[2];
-    indToLoc(ind,ixy);
-    tableToWorld(ixy,xy);
-   }
+  // convert from world coordinates into the map
+  inline void worldToTable(const double xy[2], int ixy[2]) const;
+  // convert from the map coordinates to world coordinates
+  inline void tableToWorld(const int ixy[2], double xy[2]) const;
 
+  // check whether a location is inside the map bounds
+  inline bool isInMap(int ixy[2]) const;
+  inline bool isInMap(double xy[2]) const;
 
-  inline void worldToTable(const double xy[2], int ixy[2]) const
-  {
-    ixy[0] = clamp_double(round((xy[0] - xy0[0]) / metersPerPixel), 0., (double) (dimensions[0] - 1));
-    ixy[1] = clamp_double(round((xy[1] - xy0[1]) / metersPerPixel), 0., (double) (dimensions[1] - 1));
-  }
+  //read the value contained in this cell
+  inline T & readValue(const int ixy[2]) const;
+  inline T & readValue(const double xy[2]) const;
 
-  inline void tableToWorld(const int ixy[2], double xy[2]) const
-  {
-    //    *xy[0] = ((double)ixy[0]+0.5) * metersPerPixel + xy0[0]; //+.5 puts it in the center of the cell
-    //    *xy[1] = ((double)ixy[1]+0.5) * metersPerPixel + xy0[1];
-    xy[0] = ((double) ixy[0]) * metersPerPixel + xy0[0];
-    xy[1] = ((double) ixy[1]) * metersPerPixel + xy0[1];
+  //write the value in the cell
+  inline void writeValue(const int ixy[2], T val);
+  inline void writeValue(const double xy[2], T val);
 
-  }
-  inline bool isInMap(int ixy[2]) const
-  {
-    if (ixy[0] < 0 || ixy[1] < 0)
-      return false;
-    else if (ixy[0] >= dimensions[0] || ixy[0] >= dimensions[1])
-      return false;
-    else
-      return true;
-  }
+  //add the value to the cell with optional value clamping
+  inline void updateValue(const int ixy[2], T inc, T clamp_bounds[2] = NULL);
+  inline void updateValue(const double xy[2], T inc, T clamp_bounds[2] = NULL);
 
-  inline bool isInMap(double xy[2]) const
-  {
-    if (xy[0] < xy0[0] || xy[0] > xy1[0])
-      return false;
-    else if (xy[1] < xy0[1] || xy[1] > xy1[1])
-      return false;
-    else
-      return true;
-  }
+  //step along the line segment from start to end, updating with miss_inc along the way, and update by hit_inc at end
+  void rayTrace(const int start[2], const int end[2], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL);
+  void rayTrace(const double start[2], const double end[2], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL);
 
-  inline T & readValue(const int ixy[2]) const
-  {
-    int ind = getInd(ixy);
-    return data[ind];
+  //check whether any of the cells between start and end are greater than occ_thresh
+  bool collisionCheck(const int start[2], const int end[2], T occ_thresh, int collisionPoint[2] = NULL) const;
+  bool collisionCheck(const double start[2], const double end[2], T occ_thresh, double collisionPoint[2] = NULL) const;
 
-  }
-  inline T &readValue(const double xy[2]) const
-  {
-    int ixy[2];
-    worldToTable(xy, ixy);
-    return readValue(ixy);
-  }
-  inline void writeValue(const int ixy[2], T val)
-  {
-    int ind = getInd(ixy);
-    data[ind] = val;
-  }
+  //convert the pixelmap into an LCM message
+  const occ_map_pixel_map_t *get_pixel_map_t(int64_t utime);
+  void set_from_pixel_map_t(const occ_map_pixel_map_t * _msg);
 
-  inline void writeValue(const double xy[2], T val)
-  {
-    int ixy[2];
-    worldToTable(xy, ixy);
-    writeValue(ixy, val);
-  }
+  //save the pixelmap to a file
+  void saveToFile(const char * name);
+  //load the pixelmap from a file
+  void loadFromFile(const char * name);
 
-  inline void updateValue(const int ixy[2], T inc, T clamp_bounds[2] = NULL)
-  {
-    int ind = getInd(ixy);
-    data[ind] += inc;
-    if (clamp_bounds != NULL) {
-      data[ind] = clamp_value(data[ind], clamp_bounds[0], clamp_bounds[1]);
-    }
-  }
+private:
+  template<class F>
+  inline F clamp_value(F x, F min, F max) const;
 
-  inline void updateValue(const double xy[2], T inc, T clamp_bounds[2] = NULL)
-  {
-    int ixy[2];
-    worldToTable(xy, ixy);
-    updateValue(ixy, inc, clamp_bounds);
-  }
-
-  inline void rayTrace(const double start[2], const double end[2], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL)
-  {
-    int istart[2], iend[2];
-    worldToTable(start, istart);
-    worldToTable(end, iend);
-    rayTrace(istart, iend, miss_inc, hit_inc, clamp_bounds);
-  }
-
-  /**
-   * This function adapted from the Python Imaging Library
-   */
-  void rayTrace(const int start[2], const int end[2], T miss_inc, T hit_inc, T clamp_bounds[2] = NULL)
-  {
-    int curr[2] = { start[0], start[1] };
-
-    // normalize
-    int xstep = 1;
-    int ystep = 1;
-    int dx = end[0] - start[0];
-    if (dx < 0) {
-      dx = -dx;
-      xstep = -1;
-    }
-    int dy = end[1] - start[1];
-    if (dy < 0) {
-      dy = -dy;
-      ystep = -1;
-    }
-
-    if (dx == 0) {
-      // vertical
-      for (int i = 0; i <= dy; i++) {
-        int wasHit = curr[0] == end[0] && curr[1] == end[1];
-        updateValue(curr, wasHit * hit_inc + (1 - wasHit) * miss_inc, clamp_bounds);
-        curr[1] = curr[1] + ystep;
-      }
-    }
-    else if (dy == 0) {
-      // horizontal
-      for (int i = 0; i <= dx; i++) {
-        int wasHit = curr[0] == end[0] && curr[1] == end[1];
-        updateValue(curr, wasHit * hit_inc + (1 - wasHit) * miss_inc, clamp_bounds);
-        curr[0] += xstep;
-      }
-    }
-    else if (dx > dy) {
-      // bresenham, horizontal slope
-      int n = dx;
-      dy += dy;
-      int e = dy - dx;
-      dx += dx;
-
-      for (int i = 0; i <= n; i++) {
-        int wasHit = curr[0] == end[0] && curr[1] == end[1];
-        updateValue(curr, wasHit * hit_inc + (1 - wasHit) * miss_inc, clamp_bounds);
-        if (e >= 0) {
-          curr[1] += ystep;
-          e -= dx;
-        }
-        e += dy;
-        curr[0] += xstep;
-      }
-    }
-    else {
-      // bresenham, vertical slope
-      int n = dy;
-      dx += dx;
-      int e = dx - dy;
-      dy += dy;
-
-      for (int i = 0; i <= n; i++) {
-        int wasHit = curr[0] == end[0] && curr[1] == end[1];
-        updateValue(curr, wasHit * hit_inc + (1 - wasHit) * miss_inc, clamp_bounds);
-        if (e >= 0) {
-          curr[0] += xstep;
-          e -= dy;
-        }
-        e += dx;
-        curr[1] += ystep;
-      }
-    }
-  }
-
-  inline bool collisionCheck(const double start[2], const double end[2], T occ_thresh, double collisionPoint[2] = NULL ) const
-  {
-    int istart[2], iend[2], icollision[2];
-    worldToTable(start, istart);
-    worldToTable(end, iend);
-    bool collision = collisionCheck(istart, iend, occ_thresh, icollision);
-    if (collision && collisionPoint!=NULL)
-      tableToWorld(icollision,collisionPoint);
-    return collision;
-  }
-
-  bool collisionCheck(const int start[2], const int end[2], T occ_thresh, int collisionPoint[2] = NULL ) const
-  {
-    int curr[2] = { start[0], start[1] };
-    bool collision = false;
-
-    // normalize
-    int xstep = 1;
-    int ystep = 1;
-    int dx = end[0] - start[0];
-    if (dx < 0) {
-      dx = -dx;
-      xstep = -1;
-    }
-    int dy = end[1] - start[1];
-    if (dy < 0) {
-      dy = -dy;
-      ystep = -1;
-    }
-
-    if (dx == 0) {
-      // vertical
-      for (int i = 0; i <= dy; i++) {
-        if (readValue(curr)>occ_thresh){
-          collision = true;
-          break;
-        }
-        curr[1] = curr[1] + ystep;
-      }
-    }
-    else if (dy == 0) {
-      // horizontal
-      for (int i = 0; i <= dx; i++) {
-        if (readValue(curr)>occ_thresh){
-          collision = true;
-          break;
-        }
-        curr[0] += xstep;
-      }
-    }
-    else if (dx > dy) {
-      // bresenham, horizontal slope
-      int n = dx;
-      dy += dy;
-      int e = dy - dx;
-      dx += dx;
-
-      for (int i = 0; i <= n; i++) {
-        if (readValue(curr)>occ_thresh){
-          collision = true;
-          break;
-        }
-        if (e >= 0) {
-          curr[1] += ystep;
-          e -= dx;
-        }
-        e += dy;
-        curr[0] += xstep;
-      }
-    }
-    else {
-      // bresenham, vertical slope
-      int n = dy;
-      dx += dx;
-      int e = dx - dy;
-      dy += dy;
-
-      for (int i = 0; i <= n; i++) {
-        if (readValue(curr)>occ_thresh){
-          collision = true;
-          break;
-        }
-        if (e >= 0) {
-          curr[0] += xstep;
-          e -= dy;
-        }
-        e += dx;
-        curr[1] += ystep;
-      }
-    }
-
-    if (collisionPoint!=NULL){
-      collisionPoint[0] = curr[0];
-      collisionPoint[1] = curr[1];
-    }
-    return collision;
-  }
-
-  const occ_map_pixel_map_t *get_pixel_map_t(int64_t utime)
-  {
-    if (msg == NULL)
-      msg = (occ_map_pixel_map_t*) calloc(1, sizeof(occ_map_pixel_map_t));
-    memcpy(msg->xy0, xy0, 2 * sizeof(double));
-    memcpy(msg->xy1, xy1, 2 * sizeof(double));
-    msg->mpp = metersPerPixel;
-    memcpy(msg->dimensions, dimensions, 2 * sizeof(int));
-
-    uLong uncompressed_size = num_cells * sizeof(T);
-
-    uLong compress_buf_size = uncompressed_size * 1.01 + 12; //with extra space for zlib
-    msg->mapData = (uint8_t *) realloc(msg->mapData, compress_buf_size);
-    int compress_return = compress2((Bytef *) msg->mapData, &compress_buf_size, (Bytef *) data, uncompressed_size,
-        Z_BEST_SPEED);
-    if (compress_return != Z_OK) {
-      fprintf(stderr, "ERROR: Could not compress voxel map!\n");
-      return NULL;
-    }
-    //    fprintf(stderr, "uncompressed_size=%ld compressed_size=%ld\n", uncompressed_size, compress_buf_size);
-    msg->datasize = compress_buf_size;
-    msg->compressed = 1;
-
-    //set the data_type
-    const std::type_info& type = typeid(T);
-    if (type == typeid(float))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT;
-    else if (type == typeid(uint8_t))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT8;
-    else if (type == typeid(double))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_DOUBLE;
-    else if (type == typeid(int32_t))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT32;
-    else if (type == typeid(uint32_t))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT32;
-    else if (type == typeid(int16_t))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT16;
-    else if (type == typeid(uint16_t))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT16;
-    else if (type == typeid(int8_t))
-      msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT8;
-
-    msg->utime = utime;
-    return msg;
-
-  }
-  void set_from_pixel_map_t(const occ_map_pixel_map_t * _msg)
-  {
-    memcpy(xy0, _msg->xy0, 2 * sizeof(double));
-    memcpy(xy1, _msg->xy1, 2 * sizeof(double));
-    metersPerPixel = _msg->mpp;
-    memcpy(dimensions, _msg->dimensions, 2 * sizeof(int));
-    utime = _msg->utime;
-
-    num_cells = dimensions[0] * dimensions[1];
-    int type_size = 0;
-    if (_msg->data_type > 0) {
-      const std::type_info& type = typeid(T);
-      if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT && type != typeid(float)) {
-        fprintf(stderr, "message has %d, not float data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT8 && type != typeid(uint8_t)) {
-        fprintf(stderr, "message has %d, not uint8 data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_DOUBLE && type != typeid(double)) {
-        fprintf(stderr, "message has %d, not double data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT32 && type != typeid(int32_t)) {
-        fprintf(stderr, "message has %d, not int32 data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT32 && type != typeid(uint32_t)) {
-        fprintf(stderr, "message has %d, not uint32 data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT16 && type != typeid(int16_t)) {
-        fprintf(stderr, "message has %d, not int16 data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT16 && type != typeid(uint16_t)) {
-        fprintf(stderr, "message has %d, not uint16 data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_INT8 && type != typeid(int8_t)) {
-        fprintf(stderr, "message has %d, not int8 data, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-      else if (_msg->data_type < 0 || _msg->data_type > OCC_MAP_PIXEL_MAP_T_TYPE_UINT8) {
-        fprintf(stderr, "data type of %d is unknown, not setting pixmap!\n", _msg->data_type);
-        return;
-      }
-    }
-    else {
-      fprintf(stderr, "data type is 0, lets hope it's correct!\n");
-    }
-
-    uLong uncompressed_size = num_cells * sizeof(T);
-    data = (T*) realloc(data, uncompressed_size); //TODO: does this cause problems with the delete[] in the destructor??
-    if (_msg->compressed) {
-      uLong uncompress_size_result = uncompressed_size;
-      uLong uncompress_return = uncompress((Bytef *) data, (uLong *) &uncompress_size_result, (Bytef *) _msg->mapData,
-          (uLong) _msg->datasize);
-      if (uncompress_return != Z_OK || uncompress_size_result != uncompressed_size) {
-        fprintf(stderr, "ERROR uncompressing the map, ret = %lu\n", uncompress_return);
-        return;
-      }
-    }
-    else {
-      assert((uLong) _msg->datasize == uncompressed_size);
-      memcpy(data, _msg->mapData, uncompressed_size);
-    }
-  }
-
-  void saveToFile(const char * name)
-  {
-    const occ_map_pixel_map_t * msg = get_pixel_map_t(utime);
-    int sz = occ_map_pixel_map_t_encoded_size(msg);
-    char * buf = (char *) malloc(sz * sizeof(char));
-    occ_map_pixel_map_t_encode(buf, 0, sz, msg);
-    std::ofstream ofs(name, std::ios::binary);
-    ofs << sz;
-    ofs.write(buf, sz);
-    ofs.close();
-    free(buf);
-  }
-
-
-  static occ_map_pixel_map_t * load_pixel_map_t_from_file(const char * name){
-    std::ifstream ifs(name, std::ios::binary);
-    int sz;
-    ifs >> sz;
-    char * tmpdata = (char *) malloc(sz * sizeof(char));
-    ifs.read(tmpdata, sz * sizeof(char));
-    ifs.close();
-    occ_map_pixel_map_t * ret_msg = (occ_map_pixel_map_t *) calloc(1,sizeof(occ_map_pixel_map_t));
-    occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg);
-    free(tmpdata);
-    return ret_msg;
-  }
-
-  void loadFromFile(const char * name)
-  {
-    occ_map_pixel_map_t * tmpmsg = load_pixel_map_t_from_file(name);
-    set_from_pixel_map_t(tmpmsg);
-    occ_map_pixel_map_t_destroy(tmpmsg);
-  }
-
-
-  inline double clamp_double(double x, double min, double max) const
-  {
-    if (x < min)
-      return min;
-    if (x > max)
-      return max;
-    return x;
-  }
-
-  inline T clamp_value(T x, T min, T max) const
-  {
-    if (x < min)
-      return min;
-    if (x > max)
-      return max;
-    return x;
-  }
 };
+
+//static function to load pixel_map message directly from a file
+static occ_map_pixel_map_t * load_pixel_map_t_from_file(const char * name);
 
 //typedefs for ease of use
 typedef PixelMap<float> FloatPixelMap;
 typedef PixelMap<int32_t> IntPixelMap;
 typedef PixelMap<uint8_t> Uint8PixelMap;
+
+//include the actual implimentations
+#define __PIXELMAP_DIRECT_INCLUDE__
+#include "PixelMap.hxx"
 
 }
 

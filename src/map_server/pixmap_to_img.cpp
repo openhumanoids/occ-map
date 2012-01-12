@@ -25,7 +25,7 @@ int main(int argc, char ** argv)
 
   string filename = argv[1];
   string img_fname = argv[2];
-  occ_map_pixel_map_t * pix_map_msg = FloatPixelMap::load_pixel_map_t_from_file(filename.c_str());
+  occ_map_pixel_map_t * pix_map_msg = load_pixel_map_t_from_file(filename.c_str());
 
   occ_map::Uint8PixelMap * map;
   if (pix_map_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT) {

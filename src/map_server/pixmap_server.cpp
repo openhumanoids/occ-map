@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
     fprintf(stderr, "republishing every %f seconds\n", repeat_period);
   }
 
-  occ_map_pixel_map_t * pix_map = PixelMap<float>::load_pixel_map_t_from_file(filename);
+  occ_map_pixel_map_t * pix_map = load_pixel_map_t_from_file(filename);
   pix_map->utime = _timestamp_now();
 
   while (true) {
