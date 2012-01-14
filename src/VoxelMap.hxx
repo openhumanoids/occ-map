@@ -76,7 +76,10 @@ VoxelMap<T>::VoxelMap(const char * name) :
 template<typename T>
 VoxelMap<T>::~VoxelMap()
 {
-  delete[] data;
+  if (data != NULL)
+    delete[] data;
+  if (msg != NULL)
+    occ_map_voxel_map_t_destroy(msg);
 }
 
 //get linear index into storage arrays

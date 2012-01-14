@@ -78,6 +78,8 @@ PixelMap<T>::~PixelMap()
 {
   if (data != NULL)
     delete[] data;
+  if (msg != NULL)
+    occ_map_pixel_map_t_destroy(msg);
 }
 
 template<typename T>

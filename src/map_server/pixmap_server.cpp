@@ -14,9 +14,9 @@ void usage(char * name)
 
 static int64_t _timestamp_now()
 {
-    struct timeval tv;
-    gettimeofday (&tv, NULL);
-    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
 int main(int argc, char ** argv)
@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
 
   char * filename = argv[1];
   char * channel = argv[2];
-  fprintf(stderr, "loading map from %s, and publishing on channel %s\n",filename, channel);
+  fprintf(stderr, "loading map from %s, and publishing on channel %s\n", filename, channel);
 
   if (argc >= 4) {
     repeat_period = atof(argv[3]);
