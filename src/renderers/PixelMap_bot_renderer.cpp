@@ -19,13 +19,19 @@
 
 #include "occ_map_renderers.h"
 
-#define PARAM_MAP_MODE "Map Mode"
+#define PARAM_COLOR_MODE "Color Mode"
 #define PARAM_ALPHA "Alpha"
 #define PARAM_COLOR "COLOR"
-#define PARAM_COLOR_MAP "COLOR MAP"
+#define PARAM_RESCALE_01 "RESCALE 0-1"
 
 #define PARAM_Z_OFFSET "Z-Offset"
 //#define PARAM_FOLLOW_Z "Follow Vehicle Z"
+
+typedef enum {
+  gray,
+  color,
+  jet
+} color_mode_t;
 
 #define DEFAULT_RENDERER_NAME "PixelMap"
 
@@ -40,9 +46,11 @@ struct _OccMapRendererPixelMap {
   BotGtkParamWidget *pw;
   GtkWidget *label;
   BotViewer *viewer;
+  occ_map_pixel_map_t * pix_map_msg;
   Uint8PixelMap *pix_map;
   BotGlTexture *map2dtexture;
   int textureSize[2];
+  int textureDepth;
 };
 
 static void upload_map_texture(OccMapRendererPixelMap *self);
@@ -56,79 +64,103 @@ static void pixel_map_handler(const lcm_recv_buf_t *rbuf, const char *channel, c
     void *user)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
-  if (self->pix_map != NULL)
-    delete self->pix_map;
-  if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT) {
-    FloatPixelMap * fmap = new FloatPixelMap(msg);
-    self->pix_map = new Uint8PixelMap(fmap, floatToUint8);
-    delete fmap;
-  }
-  else if (msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_UINT8) {
-    self->pix_map = new Uint8PixelMap(msg);
-  }
-  else if (msg->data_type == 0) {
-    fprintf(stderr, "Warning, pixmap datatype = 0, assuming it's a float!\n");
-    FloatPixelMap * fmap = new FloatPixelMap(msg);
-    self->pix_map = new Uint8PixelMap(fmap, floatToUint8);
-    delete fmap;
-  }
-  else {
-    fprintf(stderr, "pixmap datatype %d not handled\n", msg->data_type);
-  }
+  if (self->pix_map_msg != NULL)
+    occ_map_pixel_map_t_destroy(self->pix_map_msg);
+  self->pix_map_msg = occ_map_pixel_map_t_copy(msg);
 
   upload_map_texture(self);
   bot_viewer_request_redraw(self->viewer);
 }
 
-static float shift_unexplored(float v)
-{
-  if (fabs(v - .5) < .1)
-    return .15;
-  else
-    return v;
-}
-
-static float shift_unexplored_and_invert(float v)
-{
-  return 1 - shift_unexplored(v);
-}
-
-static uint8_t invert(uint8_t v)
+static inline uint8_t invert_uint8_t(uint8_t v)
 {
   return 255 - v;
 }
 
 static void upload_map_texture(OccMapRendererPixelMap *self)
 {
+  if (self->pix_map_msg == NULL)
+    return;
 
-  if (self->pix_map != NULL) {
-    Uint8PixelMap * drawMap = NULL;
-
-    //TBD - we shouldn't be doing this anymore
-    // makes assumptions about pixelmap format
-    //    if (!bot_gtk_param_widget_get_bool(self->pw, PARAM_COLOR_MAP)) {
-    //      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored_and_invert);
-    //    }
-    //    else {
-    //      drawMap = new FloatPixelMap(self->pix_map,shift_unexplored);
-    //    }
-
-    drawMap = new Uint8PixelMap(self->pix_map, invert);
-
-    // create the texture object if necessary
-    if (self->map2dtexture == NULL || (drawMap->dimensions[0] != self->textureSize[0] || drawMap->dimensions[1]
-        != self->textureSize[1])) {
-      if (self->map2dtexture != NULL)
-        bot_gl_texture_free(self->map2dtexture);
-      int data_size = drawMap->num_cells * sizeof(uint8_t);
-      self->map2dtexture = bot_gl_texture_new(drawMap->dimensions[0], drawMap->dimensions[1], data_size);
-      self->textureSize[0] = drawMap->dimensions[0];
-      self->textureSize[1] = drawMap->dimensions[1];
-    }
-    bot_gl_texture_upload(self->map2dtexture, GL_LUMINANCE, GL_UNSIGNED_BYTE, drawMap->dimensions[0] * sizeof(uint8_t),
-        drawMap->data);
-    delete drawMap;
+  if (self->pix_map != NULL)
+    delete self->pix_map;
+  int8_t data_type = self->pix_map_msg->data_type;
+  if (data_type == 0) {
+    fprintf(stderr, "Warning, pixmap datatype = 0, assuming it's a float!\n");
+    data_type = 0;
   }
+  switch (data_type) {
+  case OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT:
+    {
+      FloatPixelMap * fmap = new FloatPixelMap(self->pix_map_msg);
+      if (bot_gtk_param_widget_get_bool(self->pw, PARAM_RESCALE_01)) {
+        float min_val = FLT_MAX;
+        float max_val = -FLT_MAX;
+        for (int i = 0; i < fmap->num_cells; i++) {
+          min_val = fmin(min_val, fmap->data[i]);
+          max_val = fmax(max_val, fmap->data[i]);
+        }
+        for (int i = 0; i < fmap->num_cells; i++) {
+          fmap->data[i] = (fmap->data[i] - min_val) / (max_val - min_val);
+        }
+      }
+      self->pix_map = new Uint8PixelMap(fmap, floatToUint8);
+      delete fmap;
+    }
+    break;
+  case OCC_MAP_PIXEL_MAP_T_TYPE_UINT8:
+    {
+      self->pix_map = new Uint8PixelMap(self->pix_map_msg);
+    }
+    break;
+  default:
+    {
+      fprintf(stderr, "pixmap datatype %d not handled\n", self->pix_map_msg->data_type);
+      return;
+    }
+  }
+
+  //upload the texture
+
+  int textureDepth = 1;
+  if (bot_gtk_param_widget_get_enum(self->pw, PARAM_COLOR_MODE) == jet) {
+    textureDepth = 3;
+  }
+
+  // create the texture object if necessary
+  int data_size = self->pix_map->num_cells * textureDepth * sizeof(uint8_t);
+  int old_data_size = self->textureSize[0] * self->textureSize[1] * self->textureDepth * sizeof(uint8_t);
+  if (data_size != old_data_size) {
+    if (self->map2dtexture != NULL)
+      bot_gl_texture_free(self->map2dtexture);
+
+    self->map2dtexture = bot_gl_texture_new(self->pix_map->dimensions[0], self->pix_map->dimensions[1], data_size);
+    self->textureSize[0] = self->pix_map->dimensions[0];
+    self->textureSize[1] = self->pix_map->dimensions[1];
+    self->textureDepth = textureDepth;
+  }
+
+  uint8_t * draw_data = (uint8_t *) malloc(data_size);
+  if (textureDepth == 1) {
+    for (int i = 0; i < self->pix_map->num_cells; i++)
+      draw_data[i] = invert_uint8_t(self->pix_map->data[i]);
+    bot_gl_texture_upload(self->map2dtexture, GL_LUMINANCE, GL_UNSIGNED_BYTE,
+        self->pix_map->dimensions[0] * sizeof(uint8_t),
+        draw_data);
+  }
+  else if (textureDepth == 3) {
+    for (int i = 0; i < self->pix_map->num_cells; i++) {
+      uint8_t * pixel = draw_data + 3 * i;
+      const float * color = bot_color_util_jet((float) self->pix_map->data[i] / 255.0);
+      pixel[0] = color[0] * 255.0;
+      pixel[1] = color[1] * 255.0;
+      pixel[2] = color[2] * 255.0;
+    }
+    int stride = self->pix_map->dimensions[0] * 3 * sizeof(uint8_t);
+    bot_gl_texture_upload(self->map2dtexture, GL_RGB, GL_UNSIGNED_BYTE,
+        stride, draw_data);
+  }
+  free(draw_data);
 
 }
 
@@ -138,7 +170,7 @@ static void PixelMap_draw(BotViewer *viewer, BotRenderer *renderer)
 
   if (self->map2dtexture) {
 
-    if (bot_gtk_param_widget_get_bool(self->pw, PARAM_COLOR_MAP)) {
+    if (bot_gtk_param_widget_get_enum(self->pw, PARAM_COLOR_MODE) == color) {
       float * colorV = bot_color_util_jet(bot_gtk_param_widget_get_double(self->pw, PARAM_COLOR));
       glColor4f(colorV[0], colorV[1], colorV[2], bot_gtk_param_widget_get_double(self->pw, PARAM_ALPHA));
     }
@@ -218,7 +250,8 @@ static void on_save_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user
 static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, void *user)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
-  upload_map_texture(self);
+  if (strcmp(name, PARAM_COLOR_MODE) == 0 || strcmp(name, PARAM_RESCALE_01) == 0)
+    upload_map_texture(self);
   bot_viewer_request_redraw(self->viewer);
 }
 
@@ -252,10 +285,13 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   self->pw = BOT_GTK_PARAM_WIDGET(bot_gtk_param_widget_new());
   gtk_box_pack_start(GTK_BOX(renderer->widget), GTK_WIDGET(self->pw), TRUE, TRUE, 0);
 
-  bot_gtk_param_widget_add_double(self->pw, PARAM_ALPHA, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, 0.05, 0.7);
-  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_COLOR_MAP, 0, NULL);
-  bot_gtk_param_widget_add_double(self->pw, PARAM_COLOR, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, 0.05, 0.7);
+  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_RESCALE_01, 0, NULL);
 
+  bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_DEFAULTS, 0, "Grayscale", gray,
+      "Color", color, "Jet", jet, NULL);
+
+  bot_gtk_param_widget_add_double(self->pw, PARAM_ALPHA, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, 0.05, 0.7);
+  bot_gtk_param_widget_add_double(self->pw, PARAM_COLOR, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, 0.05, 0.7);
   bot_gtk_param_widget_add_double(self->pw, PARAM_Z_OFFSET, BOT_GTK_PARAM_WIDGET_SLIDER, -3, 3, 0.05, -0.1);
   //  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_FOLLOW_Z, 1, NULL);
 
