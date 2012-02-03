@@ -3,12 +3,19 @@
 #endif
 
 template<typename T>
-PixelMap<T>::PixelMap(const double _xy0[2], const double _xy1[2], double mPP, T initValue, bool allocate_data) :
+PixelMap<T>::PixelMap(const double _xy0[2], const double _xy1[2], double mPP, T initValue, bool allocate_data,
+    bool align_to_pixels) :
     metersPerPixel(mPP), msg(NULL), data(NULL), utime(0)
 {
-  // make bottom right align with pixels
-  xy0[0] = floor((1.0 / metersPerPixel) * _xy0[0]) * metersPerPixel;
-  xy0[1] = floor((1.0 / metersPerPixel) * _xy0[1]) * metersPerPixel;
+  if (align_to_pixels) {
+    // make bottom right align with pixels
+    xy0[0] = floor((1.0 / metersPerPixel) * _xy0[0]) * metersPerPixel;
+    xy0[1] = floor((1.0 / metersPerPixel) * _xy0[1]) * metersPerPixel;
+  }
+  else {
+    xy0[0] = _xy0[0];
+    xy0[1] = _xy0[1];
+  }
 
   dimensions[0] = ceil(floor(100 * (1.0 / metersPerPixel) * (_xy1[0] - xy0[0])) / 100); //multiply by 100 and take floor to avoid machine
   dimensions[1] = ceil(floor(100 * (1.0 / metersPerPixel) * (_xy1[1] - xy0[1])) / 100); //precision causing different sized maps
@@ -136,7 +143,7 @@ inline void PixelMap<T>::tableToWorld(const int ixy[2], double xy[2]) const
 
 }
 template<typename T>
-inline bool PixelMap<T>::isInMap(int ixy[2]) const
+inline bool PixelMap<T>::isInMap(const int ixy[2]) const
     {
   if (ixy[0] < 0 || ixy[1] < 0)
     return false;
@@ -147,7 +154,7 @@ inline bool PixelMap<T>::isInMap(int ixy[2]) const
 }
 
 template<typename T>
-inline bool PixelMap<T>::isInMap(double xy[2]) const
+inline bool PixelMap<T>::isInMap(const double xy[2]) const
     {
   if (xy[0] < xy0[0] || xy[0] > xy1[0])
     return false;

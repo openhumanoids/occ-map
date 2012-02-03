@@ -24,7 +24,7 @@ public:
   T* data;
 
   // normal constructor
-  PixelMap<T>(const double _xy0[2], const double _xy1[2], double mPP, T initValue = T(), bool allocate_data = true);
+  PixelMap<T>(const double _xy0[2], const double _xy1[2], double mPP, T initValue = T(), bool allocate_data = true, bool align_to_pixels = true);
 
   // Copy Constructor
   template<class F>
@@ -55,8 +55,8 @@ public:
   inline void tableToWorld(const int ixy[2], double xy[2]) const;
 
   // check whether a location is inside the map bounds
-  inline bool isInMap(int ixy[2]) const;
-  inline bool isInMap(double xy[2]) const;
+  inline bool isInMap(const int ixy[2]) const;
+  inline bool isInMap(const double xy[2]) const;
 
   //read the value contained in this cell
   inline T & readValue(const int ixy[2]) const;
