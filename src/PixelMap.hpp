@@ -34,7 +34,7 @@ public:
   PixelMap<T>(const occ_map_pixel_map_t * _msg);
 
   // Constructor from a file (created with "saveToFile")
-  PixelMap<T>(const char * name);
+  PixelMap<T>(const std::string & name);
 
   ~PixelMap<T>();
 
@@ -83,9 +83,9 @@ public:
   void set_from_pixel_map_t(const occ_map_pixel_map_t * _msg);
 
   //save the pixelmap to a file
-  void saveToFile(const char * name);
+  void saveToFile(const std::string & name);
   //load the pixelmap from a file
-  void loadFromFile(const char * name);
+  void loadFromFile(const std::string & name);
 
 private:
   template<class F>
@@ -94,7 +94,7 @@ private:
 };
 
 //static function to load pixel_map message directly from a file
-static occ_map_pixel_map_t * load_pixel_map_t_from_file(const char * name);
+static occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name);
 
 //typedefs for ease of use
 typedef PixelMap<float> FloatPixelMap;

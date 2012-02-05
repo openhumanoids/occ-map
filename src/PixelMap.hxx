@@ -74,7 +74,7 @@ PixelMap<T>::PixelMap(const occ_map_pixel_map_t * _msg) :
  * Constructor from a file (created with "saveToFile")
  */
 template<typename T>
-PixelMap<T>::PixelMap(const char * name) :
+PixelMap<T>::PixelMap(const std::string & name) :
     msg(NULL), data(NULL)
 {
   loadFromFile(name);
@@ -516,13 +516,13 @@ void PixelMap<T>::set_from_pixel_map_t(const occ_map_pixel_map_t * _msg)
 }
 
 template<typename T>
-void PixelMap<T>::saveToFile(const char * name)
+void PixelMap<T>::saveToFile(const std::string & name)
 {
   const occ_map_pixel_map_t * msg = get_pixel_map_t(utime);
   int sz = occ_map_pixel_map_t_encoded_size(msg);
   char * buf = (char *) malloc(sz * sizeof(char));
   occ_map_pixel_map_t_encode(buf, 0, sz, msg);
-  std::ofstream ofs(name, std::ios::binary);
+  std::ofstream ofs(name.c_str(), std::ios::binary);
   ofs << sz;
   ofs.write(buf, sz);
   ofs.close();
@@ -530,7 +530,7 @@ void PixelMap<T>::saveToFile(const char * name)
 }
 
 template<typename T>
-void PixelMap<T>::loadFromFile(const char * name)
+void PixelMap<T>::loadFromFile(const std::string & name)
 {
   occ_map_pixel_map_t * tmpmsg = load_pixel_map_t_from_file(name);
   set_from_pixel_map_t(tmpmsg);
@@ -548,9 +548,9 @@ inline F PixelMap<T>::clamp_value(F x, F min, F max) const
   return x;
 }
 
-occ_map_pixel_map_t * load_pixel_map_t_from_file(const char * name)
+occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name)
 {
-  std::ifstream ifs(name, std::ios::binary);
+  std::ifstream ifs(name.c_str(), std::ios::binary);
   int sz;
   ifs >> sz;
   char * tmpdata = (char *) malloc(sz * sizeof(char));

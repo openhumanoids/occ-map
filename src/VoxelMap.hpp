@@ -35,7 +35,7 @@ public:
   VoxelMap<T>(const occ_map_voxel_map_t * _msg);
 
   // Constructor from a file (created with "saveToFile")
-  VoxelMap<T>(const char * name);
+  VoxelMap<T>(const std::string & name);
 
   ~VoxelMap<T>();
 
@@ -83,8 +83,8 @@ public:
   const occ_map_voxel_map_t * get_voxel_map_t(int64_t utime);
   void set_from_voxel_map_t(const occ_map_voxel_map_t * _msg);
 
-  void saveToFile(const char * name);
-  void loadFromFile(const char * name);
+  void saveToFile(const std::string & name);
+  void loadFromFile(const std::string & name);
 
 private:
   template<class F>
@@ -92,7 +92,7 @@ private:
 };
 
 //static function to load pixel_map message directly from a file
-static occ_map_voxel_map_t * load_voxel_map_t_from_file(const char * name);
+static occ_map_voxel_map_t * load_voxel_map_t_from_file(const std::string & name);
 
 typedef VoxelMap<float> FloatVoxelMap;
 

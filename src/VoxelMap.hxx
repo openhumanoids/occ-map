@@ -58,10 +58,10 @@ VoxelMap<T>::VoxelMap(const occ_map_voxel_map_t * _msg) :
 }
 
 template<typename T>
-VoxelMap<T>::VoxelMap(const char * name) :
+VoxelMap<T>::VoxelMap(const std::string & name) :
     msg(NULL), data(NULL)
 {
-  std::ifstream ifs(name, std::ios::binary);
+  std::ifstream ifs(name.c_str(), std::ios::binary);
   int sz;
   ifs >> sz;
   char * data = (char *) malloc(sz * sizeof(char));
@@ -482,13 +482,13 @@ void VoxelMap<T>::set_from_voxel_map_t(const occ_map_voxel_map_t * _msg)
 }
 
 template<typename T>
-void VoxelMap<T>::saveToFile(const char * name)
+void VoxelMap<T>::saveToFile(const std::string & name)
 {
   const occ_map_voxel_map_t * msg = get_voxel_map_t(0);
   int sz = occ_map_voxel_map_t_encoded_size(msg);
   char * buf = (char *) malloc(sz * sizeof(char));
   occ_map_voxel_map_t_encode(buf, 0, sz, msg);
-  std::ofstream ofs(name, std::ios::binary);
+  std::ofstream ofs(name.c_str(), std::ios::binary);
   ofs << sz;
   ofs.write(buf, sz);
   ofs.close();
@@ -496,7 +496,7 @@ void VoxelMap<T>::saveToFile(const char * name)
 }
 
 template<typename T>
-void VoxelMap<T>::loadFromFile(const char * name)
+void VoxelMap<T>::loadFromFile(const std::string & name)
 {
   occ_map_voxel_map_t * tmpmsg = load_voxel_map_t_from_file(name);
   set_from_voxel_map_t(tmpmsg);
@@ -514,9 +514,9 @@ inline F VoxelMap<T>::clamp_value(F x, F min, F max) const
   return x;
 }
 
-occ_map_voxel_map_t * load_voxel_map_t_from_file(const char * name)
+occ_map_voxel_map_t * load_voxel_map_t_from_file(const std::string & name)
 {
-  std::ifstream ifs(name, std::ios::binary);
+  std::ifstream ifs(name.c_str(), std::ios::binary);
   int sz;
   ifs >> sz;
   char * tmpdata = (char *) malloc(sz * sizeof(char));
