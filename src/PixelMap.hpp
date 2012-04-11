@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <fstream>
 #include <typeinfo>
+#include <iostream>
 
 namespace occ_map {
 

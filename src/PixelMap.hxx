@@ -557,7 +557,9 @@ occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name)
   ifs.read(tmpdata, sz * sizeof(char));
   ifs.close();
   occ_map_pixel_map_t * ret_msg = (occ_map_pixel_map_t *) calloc(1, sizeof(occ_map_pixel_map_t));
-  occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg);
+  if (occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg)<0){
+    std::cerr<< "ERROR decoding pixelmap from "<< name <<std::endl;
+  }
   free(tmpdata);
   return ret_msg;
 }
