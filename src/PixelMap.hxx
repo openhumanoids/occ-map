@@ -147,7 +147,7 @@ inline bool PixelMap<T>::isInMap(const int ixy[2]) const
     {
   if (ixy[0] < 0 || ixy[1] < 0)
     return false;
-  else if (ixy[0] >= dimensions[0] || ixy[0] >= dimensions[1])
+  else if (ixy[0] >= dimensions[0] || ixy[1] >= dimensions[1])
     return false;
   else
     return true;
