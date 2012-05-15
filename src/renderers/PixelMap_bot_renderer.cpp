@@ -87,7 +87,7 @@ static void upload_map_texture(OccMapRendererPixelMap *self)
   int8_t data_type = self->pix_map_msg->data_type;
   if (data_type == 0) {
     fprintf(stderr, "Warning, pixmap datatype = 0, assuming it's a float!\n");
-    data_type = 0;
+    data_type = OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT;
   }
   switch (data_type) {
   case OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT:
