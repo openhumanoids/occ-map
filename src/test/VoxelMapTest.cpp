@@ -18,7 +18,7 @@ int main(int argc, char ** argv)
   for (ixyz[2] = -5; ixyz[2] < 10; ixyz[2]+=.2) {
     for (ixyz[1] = -5; ixyz[1] < 10; ixyz[1]+=.2) {
       for (ixyz[0] = .5; ixyz[0] < 1; ixyz[0]+=.2) {
-        fvm.writeValue(ixyz,10);
+        fvm.writeValue(ixyz,0.99);
       }
     }
   }
@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
   for (double x = -5; x < 5; x += .5) {
     xyzR[0] = x;
     fvm.raytrace(xyzO, xyzR, 1, .3);
-  }
+    }
 
   const occ_map_voxel_map_t * msg = fvm.get_voxel_map_t(0);
   lcm_t * lcm = lcm_create(NULL);

@@ -167,7 +167,7 @@ static void VoxelMap_draw(BotViewer *viewer, BotRenderer *renderer)
     self->voxelmap_dl = glGenLists(1);
     glNewList(self->voxelmap_dl, GL_COMPILE_AND_EXECUTE);
 
-    fprintf(stderr, "data dirty\n");
+    //fprintf(stderr, "data dirty\n");
     glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_POINT_BIT | GL_CURRENT_BIT);
     //z_buffering
     glEnable(GL_DEPTH_TEST);
