@@ -25,7 +25,7 @@ VoxelMap<T>::VoxelMap(const double _xyz0[3], const double _xyz1[3], const double
 
 template<typename T>
 template<class F>
-VoxelMap<T>::VoxelMap(const VoxelMap<F> * to_copy, T(*transformFunc)(F)) :
+VoxelMap<T>::VoxelMap(const VoxelMap<F> * to_copy, bool copyData, T (*transformFunc)(F)) :
     msg(NULL)
 {
   memcpy(xyz0, to_copy->xyz0, 3 * sizeof(double));
@@ -37,14 +37,16 @@ VoxelMap<T>::VoxelMap(const VoxelMap<F> * to_copy, T(*transformFunc)(F)) :
   for (int i = 0; i < 3; i++)
     num_cells *= dimensions[i];
   data = new T[num_cells];
-  int ixyz[3];
-  for (ixyz[2] = 0; ixyz[2] < dimensions[2]; ixyz[2]++) {
-    for (ixyz[1] = 0; ixyz[1] < dimensions[1]; ixyz[1]++) {
-      for (ixyz[0] = 0; ixyz[0] < dimensions[0]; ixyz[0]++) {
-        if (transformFunc != NULL)
-          writeValue(ixyz, transformFunc(to_copy->readValue(ixyz)));
-        else
-          writeValue(ixyz, to_copy->readValue(ixyz));
+  if (copyData) {
+    int ixyz[3];
+    for (ixyz[2] = 0; ixyz[2] < dimensions[2]; ixyz[2]++) {
+      for (ixyz[1] = 0; ixyz[1] < dimensions[1]; ixyz[1]++) {
+        for (ixyz[0] = 0; ixyz[0] < dimensions[0]; ixyz[0]++) {
+          if (transformFunc != NULL)
+            writeValue(ixyz, transformFunc(to_copy->readValue(ixyz)));
+          else
+            writeValue(ixyz, to_copy->readValue(ixyz));
+        }
       }
     }
   }
@@ -79,7 +81,7 @@ VoxelMap<T>::~VoxelMap()
   if (data != NULL)
     delete[] data;
   if (msg != NULL)
-    occ_map_voxel_map_t_destroy(msg);
+    occ_map_voxel_map_t_destroy (msg);
 }
 
 //get linear index into storage arrays

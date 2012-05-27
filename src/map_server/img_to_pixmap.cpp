@@ -50,7 +50,7 @@ int main(int argc, char ** argv)
       u8map->writeValue(ixy, val);
     }
   }
-  FloatPixelMap * fmap = new FloatPixelMap(u8map, uint8ToFloat);
+  FloatPixelMap * fmap = new FloatPixelMap(u8map,true, uint8ToFloat);
   fmap->saveToFile(filename.c_str());
 
 }

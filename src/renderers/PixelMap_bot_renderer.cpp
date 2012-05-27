@@ -104,7 +104,7 @@ static void upload_map_texture(OccMapRendererPixelMap *self)
           fmap->data[i] = (fmap->data[i] - min_val) / (max_val - min_val);
         }
       }
-      self->pix_map = new Uint8PixelMap(fmap, floatToUint8);
+      self->pix_map = new Uint8PixelMap(fmap, true, floatToUint8);
       delete fmap;
     }
     break;

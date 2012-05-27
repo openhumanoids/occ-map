@@ -30,7 +30,7 @@ int main(int argc, char ** argv)
   occ_map::Uint8PixelMap * map;
   if (pix_map_msg->data_type == OCC_MAP_PIXEL_MAP_T_TYPE_FLOAT) {
     FloatPixelMap * fmap = new FloatPixelMap(pix_map_msg);
-    map = new occ_map::Uint8PixelMap(fmap, floatToUint8);
+    map = new occ_map::Uint8PixelMap(fmap, true, floatToUint8);
     delete fmap;
   }
 

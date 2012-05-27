@@ -40,7 +40,7 @@ PixelMap<T>::PixelMap(const double _xy0[2], const double _xy1[2], double mPP, T 
  */
 template<typename T>
 template<class F>
-PixelMap<T>::PixelMap(const PixelMap<F> * to_copy, T(*transformFunc)(F)) :
+PixelMap<T>::PixelMap(const PixelMap<F> * to_copy, bool copyData, T (*transformFunc)(F)) :
     msg(NULL), metersPerPixel(to_copy->metersPerPixel), data(NULL), utime(0)
 {
   memcpy(xy0, to_copy->xy0, 2 * sizeof(double));
@@ -49,13 +49,15 @@ PixelMap<T>::PixelMap(const PixelMap<F> * to_copy, T(*transformFunc)(F)) :
   memcpy(dimensions, to_copy->dimensions, 2 * sizeof(int));
   num_cells = to_copy->num_cells;
   data = new T[num_cells];
-  int ixy[2];
-  for (ixy[1] = 0; ixy[1] < dimensions[1]; ixy[1]++) {
-    for (ixy[0] = 0; ixy[0] < dimensions[0]; ixy[0]++) {
-      if (transformFunc != NULL)
-        writeValue(ixy, transformFunc(to_copy->readValue(ixy)));
-      else
-        writeValue(ixy, to_copy->readValue(ixy));
+  if (copyData) {
+    int ixy[2];
+    for (ixy[1] = 0; ixy[1] < dimensions[1]; ixy[1]++) {
+      for (ixy[0] = 0; ixy[0] < dimensions[0]; ixy[0]++) {
+        if (transformFunc != NULL)
+          writeValue(ixy, transformFunc(to_copy->readValue(ixy)));
+        else
+          writeValue(ixy, to_copy->readValue(ixy));
+      }
     }
   }
 }
@@ -86,7 +88,7 @@ PixelMap<T>::~PixelMap()
   if (data != NULL)
     delete[] data;
   if (msg != NULL)
-    occ_map_pixel_map_t_destroy(msg);
+    occ_map_pixel_map_t_destroy (msg);
 }
 
 template<typename T>
@@ -557,8 +559,8 @@ occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name)
   ifs.read(tmpdata, sz * sizeof(char));
   ifs.close();
   occ_map_pixel_map_t * ret_msg = (occ_map_pixel_map_t *) calloc(1, sizeof(occ_map_pixel_map_t));
-  if (occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg)<0){
-    std::cerr<< "ERROR decoding pixelmap from "<< name <<std::endl;
+  if (occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg) < 0) {
+    std::cerr << "ERROR decoding pixelmap from " << name << std::endl;
   }
   free(tmpdata);
   return ret_msg;

@@ -29,7 +29,7 @@ public:
 
   // Copy Constructor
   template<class F>
-  VoxelMap<T>(const VoxelMap<F> * to_copy, T(*transformFunc)(F) = NULL);
+  VoxelMap<T>(const VoxelMap<F> * to_copy, bool copyData = true, T (*transformFunc)(F) = NULL);
 
   // Constructor from an LCM message
   VoxelMap<T>(const occ_map_voxel_map_t * _msg);

@@ -29,7 +29,7 @@ public:
 
   // Copy Constructor
   template<class F>
-  PixelMap<T>(const PixelMap<F> * to_copy, T(*transformFunc)(F) = NULL);
+  PixelMap<T>(const PixelMap<F> * to_copy, bool copyData=true, T(*transformFunc)(F) = NULL);
 
   // Constructor from an lcm message
   PixelMap<T>(const occ_map_pixel_map_t * _msg);
