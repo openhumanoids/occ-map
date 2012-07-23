@@ -41,25 +41,35 @@ static void pixel_map_handler(const lcm_recv_buf_t *rbuf, const char *channel, c
 
 void usage(char * name)
 {
-  fprintf(stderr, "usage: %s filename channel\n", name);
+  fprintf(stderr, "usage: %s filename channel [logfile]\n", name);
   exit(1);
 }
 
 int main(int argc, char ** argv)
 {
   app_t app;
-  app.lcm = lcm_create(NULL);
-
-  if (argc != 3)
+  if (argc < 3 || argc >4)
     usage(argv[0]);
 
   app.filename = argv[1];
   char * channel = argv[2];
 
+  const  char * provider = NULL;
+  string logfile,lcmurl;
+  if (argc>3){
+    logfile = argv[3];
+    lcmurl = "file://" + logfile + "?speed=0";
+    provider = lcmurl.c_str();
+  }
+  app.lcm = lcm_create(provider);
+
+
   occ_map_pixel_map_t_subscribe(app.lcm, channel, pixel_map_handler, &app);
 
-  while (true)
-    lcm_handle(app.lcm);
-
+  while (true){
+    int ret = lcm_handle(app.lcm);
+    if (ret!=0)
+      break;
+  }
 }
 

@@ -87,13 +87,13 @@ VoxelMap<T>::~VoxelMap()
 //get linear index into storage arrays
 template<typename T>
 inline int VoxelMap<T>::getInd(const int ixyz[3]) const
-    {
+{
   return ixyz[2] * (dimensions[0] * dimensions[1]) + ixyz[1] * dimensions[0] + ixyz[0];
 }
 template<typename T>
 inline int VoxelMap<T>::getInd(const double xyz[3]) const
-    {
-  int ixyz[2];
+{
+  int ixyz[3];
   worldToTable(xyz, ixyz);
   return getInd(ixyz);
 }
