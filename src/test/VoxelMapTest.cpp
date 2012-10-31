@@ -1,12 +1,4 @@
-/*
- * VoxelMapTest.cpp
- *
- *  Created on: Feb 9, 2011
- *      Author: abachrac
- */
-
 #include <occ_map/VoxelMap.hpp>
-#include <lcmtypes/occ_map_voxel_map_t.h>
 
 int main(int argc, char ** argv)
 {
@@ -30,7 +22,9 @@ int main(int argc, char ** argv)
     fvm.raytrace(xyzO, xyzR, 1, .3);
     }
 
+#ifndef NO_LCM
   const occ_map_voxel_map_t * msg = fvm.get_voxel_map_t(0);
   lcm_t * lcm = lcm_create(NULL);
   occ_map_voxel_map_t_publish(lcm, "VOXEL_MAP",msg);
+#endif
 }

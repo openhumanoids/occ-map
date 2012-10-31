@@ -1,11 +1,20 @@
 #ifndef __OCC_MAP_VOXELMAP_HPP__
 #define __OCC_MAP_VOXELMAP_HPP__
 
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+#include <assert.h>
+
+//#define NO_LCM
+#ifndef NO_LCM
 #include <lcmtypes/occ_map_voxel_map_t.h>
 #include <zlib.h>
-#include <math.h>
 #include <fstream>
-#include <assert.h>
+#include <typeinfo>
+#endif
 
 namespace occ_map {
 
@@ -17,7 +26,10 @@ public:
   double metersPerPixel[3];
   int dimensions[3];
   int num_cells;
+
+#ifndef NO_LCM
   occ_map_voxel_map_t *msg;
+#endif
   int64_t utime;
 
   //the actual storage arrays
@@ -31,11 +43,13 @@ public:
   template<class F>
   VoxelMap<T>(const VoxelMap<F> * to_copy, bool copyData = true, T (*transformFunc)(F) = NULL);
 
+#ifndef NO_LCM
   // Constructor from an LCM message
   VoxelMap<T>(const occ_map_voxel_map_t * _msg);
 
   // Constructor from a file (created with "saveToFile")
   VoxelMap<T>(const std::string & name);
+#endif
 
   ~VoxelMap<T>();
 
@@ -79,22 +93,29 @@ public:
   bool collisionCheck(const int start[3], const int end[3], T occ_thresh, int collisionPoint[3] = NULL) const;
   bool collisionCheck(const double start[3], const double end[3], T occ_thresh, double collisionPoint[3] = NULL) const;
 
+#ifndef NO_LCM
   //convert the voxelmap into an LCM message
   const occ_map_voxel_map_t * get_voxel_map_t(int64_t utime);
   void set_from_voxel_map_t(const occ_map_voxel_map_t * _msg);
 
   void saveToFile(const std::string & name);
   void loadFromFile(const std::string & name);
+#endif
 
 private:
   template<class F>
   inline F clamp_value(F x, F min, F max) const;
 };
 
+#ifndef NO_LCM
 //static function to load pixel_map message directly from a file
 static occ_map_voxel_map_t * load_voxel_map_t_from_file(const std::string & name);
+#endif
 
 typedef VoxelMap<float> FloatVoxelMap;
+typedef VoxelMap<int32_t> IntVoxelMap;
+typedef VoxelMap<uint8_t> Uint8VoxelMap;
+
 
 //include the actual implimentations
 #define __VOXELMAP_DIRECT_INCLUDE__

@@ -5,8 +5,11 @@
 template<typename T>
 VoxelMap<T>::VoxelMap(const double _xyz0[3], const double _xyz1[3], const double _metersPerPixel[3], T initValue,
     bool allocate_data) :
-    data(NULL), msg(NULL)
+    data(NULL)
 {
+#ifndef NO_LCM
+  msg = NULL;
+#endif
   memcpy(xyz0, _xyz0, 3 * sizeof(double));
   memcpy(xyz1, _xyz1, 3 * sizeof(double));
   memcpy(metersPerPixel, _metersPerPixel, 3 * sizeof(double));
@@ -25,9 +28,11 @@ VoxelMap<T>::VoxelMap(const double _xyz0[3], const double _xyz1[3], const double
 
 template<typename T>
 template<class F>
-VoxelMap<T>::VoxelMap(const VoxelMap<F> * to_copy, bool copyData, T (*transformFunc)(F)) :
-    msg(NULL)
+VoxelMap<T>::VoxelMap(const VoxelMap<F> * to_copy, bool copyData, T (*transformFunc)(F))
 {
+#ifndef NO_LCM
+  msg = NULL;
+#endif
   memcpy(xyz0, to_copy->xyz0, 3 * sizeof(double));
   memcpy(xyz1, to_copy->xyz1, 3 * sizeof(double));
   memcpy(metersPerPixel, to_copy->metersPerPixel, 3 * sizeof(double));
@@ -52,6 +57,7 @@ VoxelMap<T>::VoxelMap(const VoxelMap<F> * to_copy, bool copyData, T (*transformF
   }
 }
 
+#ifndef NO_LCM
 template<typename T>
 VoxelMap<T>::VoxelMap(const occ_map_voxel_map_t * _msg) :
     msg(NULL)
@@ -75,24 +81,28 @@ VoxelMap<T>::VoxelMap(const std::string & name) :
   occ_map_voxel_map_t_decode_cleanup(&tmpmsg);
   free(data);
 }
+#endif
+
 template<typename T>
 VoxelMap<T>::~VoxelMap()
 {
   if (data != NULL)
     delete[] data;
+#ifndef NO_LCM
   if (msg != NULL)
     occ_map_voxel_map_t_destroy (msg);
+#endif
 }
 
 //get linear index into storage arrays
 template<typename T>
 inline int VoxelMap<T>::getInd(const int ixyz[3]) const
-{
+    {
   return ixyz[2] * (dimensions[0] * dimensions[1]) + ixyz[1] * dimensions[0] + ixyz[0];
 }
 template<typename T>
 inline int VoxelMap<T>::getInd(const double xyz[3]) const
-{
+    {
   int ixyz[3];
   worldToTable(xyz, ixyz);
   return getInd(ixyz);
@@ -425,6 +435,7 @@ bool VoxelMap<T>::collisionCheck(const double start[3], const double end[3], T o
   collisionCheck(istart, iend, occ_thresh, collisionPoint);
 }
 
+#ifndef NO_LCM
 template<typename T>
 const occ_map_voxel_map_t * VoxelMap<T>::get_voxel_map_t(int64_t utime)
 {
@@ -448,6 +459,28 @@ const occ_map_voxel_map_t * VoxelMap<T>::get_voxel_map_t(int64_t utime)
   //    fprintf(stderr, "uncompressed_size=%ld compressed_size=%ld\n", uncompressed_size, compress_buf_size);
   msg->datasize = compress_buf_size;
   msg->compressed = 1;
+
+  //set the data_type
+  const std::type_info& type = typeid(T);
+  if (type == typeid(float))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_FLOAT;
+  else if (type == typeid(uint8_t))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_UINT8;
+  else if (type == typeid(double))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_DOUBLE;
+  else if (type == typeid(int32_t))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_INT32;
+  else if (type == typeid(uint32_t))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_UINT32;
+  else if (type == typeid(int16_t))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_INT16;
+  else if (type == typeid(uint16_t))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_UINT16;
+  else if (type == typeid(int8_t))
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_INT8;
+  else
+    msg->data_type = OCC_MAP_VOXEL_MAP_T_TYPE_UNKNOWN;
+
   msg->utime = utime;
 
   return msg;
@@ -504,6 +537,7 @@ void VoxelMap<T>::loadFromFile(const std::string & name)
   set_from_voxel_map_t(tmpmsg);
   occ_map_voxel_map_t_destroy(tmpmsg);
 }
+#endif
 
 template<typename T>
 template<class F>
@@ -516,6 +550,7 @@ inline F VoxelMap<T>::clamp_value(F x, F min, F max) const
   return x;
 }
 
+#ifndef NO_LCM
 occ_map_voxel_map_t * load_voxel_map_t_from_file(const std::string & name)
 {
   std::ifstream ifs(name.c_str(), std::ios::binary);
@@ -529,4 +564,4 @@ occ_map_voxel_map_t * load_voxel_map_t_from_file(const std::string & name)
   free(tmpdata);
   return ret_msg;
 }
-
+#endif

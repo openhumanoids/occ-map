@@ -1,10 +1,3 @@
-/*
- * VoxelMapTest.cpp
- *
- *  Created on: Feb 9, 2011
- *      Author: abachrac
- */
-
 #include <occ_map/PixelMap.hpp>
 
 int main(int argc, char ** argv){

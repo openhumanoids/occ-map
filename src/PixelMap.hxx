@@ -5,8 +5,12 @@
 template<typename T>
 PixelMap<T>::PixelMap(const double _xy0[2], const double _xy1[2], double mPP, T initValue, bool allocate_data,
     bool align_to_pixels) :
-    metersPerPixel(mPP), msg(NULL), data(NULL), utime(0)
+    metersPerPixel(mPP),  data(NULL), utime(0)
 {
+#ifndef NO_LCM
+  msg=NULL;
+#endif
+
   if (align_to_pixels) {
     // make bottom right align with pixels
     xy0[0] = floor((1.0 / metersPerPixel) * _xy0[0]) * metersPerPixel;
@@ -41,8 +45,12 @@ PixelMap<T>::PixelMap(const double _xy0[2], const double _xy1[2], double mPP, T 
 template<typename T>
 template<class F>
 PixelMap<T>::PixelMap(const PixelMap<F> * to_copy, bool copyData, T (*transformFunc)(F)) :
-    msg(NULL), metersPerPixel(to_copy->metersPerPixel), data(NULL), utime(0)
+    metersPerPixel(to_copy->metersPerPixel), data(NULL), utime(0)
 {
+#ifndef NO_LCM
+msg = NULL;
+#endif
+
   memcpy(xy0, to_copy->xy0, 2 * sizeof(double));
   memcpy(xy1, to_copy->xy1, 2 * sizeof(double));
 
@@ -62,6 +70,7 @@ PixelMap<T>::PixelMap(const PixelMap<F> * to_copy, bool copyData, T (*transformF
   }
 }
 
+#ifndef NO_LCM
 /*
  * Constructor from a message
  */
@@ -81,14 +90,17 @@ PixelMap<T>::PixelMap(const std::string & name) :
 {
   loadFromFile(name);
 }
+#endif
 
 template<typename T>
 PixelMap<T>::~PixelMap()
 {
   if (data != NULL)
     delete[] data;
+#ifndef NO_LCM
   if (msg != NULL)
     occ_map_pixel_map_t_destroy (msg);
+#endif
 }
 
 template<typename T>
@@ -399,6 +411,8 @@ bool PixelMap<T>::collisionCheck(const int start[2], const int end[2], T occ_thr
   return collision;
 }
 
+
+#ifndef NO_LCM
 template<typename T>
 const occ_map_pixel_map_t * PixelMap<T>::get_pixel_map_t(int64_t utime)
 {
@@ -441,6 +455,8 @@ const occ_map_pixel_map_t * PixelMap<T>::get_pixel_map_t(int64_t utime)
     msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UINT16;
   else if (type == typeid(int8_t))
     msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_INT8;
+  else
+    msg->data_type = OCC_MAP_PIXEL_MAP_T_TYPE_UNKNOWN;
 
   msg->utime = utime;
   return msg;
@@ -539,17 +555,6 @@ void PixelMap<T>::loadFromFile(const std::string & name)
   occ_map_pixel_map_t_destroy(tmpmsg);
 }
 
-template<typename T>
-template<class F>
-inline F PixelMap<T>::clamp_value(F x, F min, F max) const
-    {
-  if (x < min)
-    return min;
-  if (x > max)
-    return max;
-  return x;
-}
-
 occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name)
 {
   std::ifstream ifs(name.c_str(), std::ios::binary);
@@ -560,8 +565,24 @@ occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name)
   ifs.close();
   occ_map_pixel_map_t * ret_msg = (occ_map_pixel_map_t *) calloc(1, sizeof(occ_map_pixel_map_t));
   if (occ_map_pixel_map_t_decode(tmpdata, 0, sz, ret_msg) < 0) {
-    std::cerr << "ERROR decoding pixelmap from " << name << std::endl;
+    fprintf(stderr,"ERROR decoding pixelmap from %s\n",name.c_str());
   }
   free(tmpdata);
   return ret_msg;
+}
+
+#endif
+
+
+
+
+template<typename T>
+template<class F>
+inline F PixelMap<T>::clamp_value(F x, F min, F max) const
+    {
+  if (x < min)
+    return min;
+  if (x > max)
+    return max;
+  return x;
 }

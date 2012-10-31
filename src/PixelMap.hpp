@@ -1,13 +1,23 @@
 #ifndef __OCC_MAP_PIXEL_MAP_HPP__
 #define __OCC_MAP_PIXEL_MAP_HPP__
 
-#include <lcmtypes/occ_map_pixel_map_t.h>
-#include <zlib.h>
+
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+
+
+//#define NO_LCM
+#ifndef NO_LCM
+#include <lcmtypes/occ_map_pixel_map_t.h>
+#include <zlib.h>
 #include <fstream>
 #include <typeinfo>
-#include <iostream>
+#endif
+
 
 namespace occ_map {
 
@@ -19,7 +29,9 @@ public:
   double metersPerPixel;
   int dimensions[2];
   int num_cells;
+#ifndef NO_LCM
   occ_map_pixel_map_t * msg;
+#endif
   int64_t utime;
   // the actual storage array
   T* data;
@@ -31,11 +43,13 @@ public:
   template<class F>
   PixelMap<T>(const PixelMap<F> * to_copy, bool copyData=true, T(*transformFunc)(F) = NULL);
 
+#ifndef NO_LCM
   // Constructor from an lcm message
   PixelMap<T>(const occ_map_pixel_map_t * _msg);
 
   // Constructor from a file (created with "saveToFile")
   PixelMap<T>(const std::string & name);
+#endif
 
   ~PixelMap<T>();
 
@@ -79,6 +93,7 @@ public:
   bool collisionCheck(const int start[2], const int end[2], T occ_thresh, int collisionPoint[2] = NULL) const;
   bool collisionCheck(const double start[2], const double end[2], T occ_thresh, double collisionPoint[2] = NULL) const;
 
+#ifndef NO_LCM
   //convert the pixelmap into an LCM message
   const occ_map_pixel_map_t *get_pixel_map_t(int64_t utime);
   void set_from_pixel_map_t(const occ_map_pixel_map_t * _msg);
@@ -87,6 +102,7 @@ public:
   void saveToFile(const std::string & name);
   //load the pixelmap from a file
   void loadFromFile(const std::string & name);
+#endif
 
 private:
   template<class F>
@@ -94,8 +110,10 @@ private:
 
 };
 
+#ifndef NO_LCM
 //static function to load pixel_map message directly from a file
 static occ_map_pixel_map_t * load_pixel_map_t_from_file(const std::string & name);
+#endif
 
 //typedefs for ease of use
 typedef PixelMap<float> FloatPixelMap;
