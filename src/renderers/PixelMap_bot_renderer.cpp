@@ -256,12 +256,16 @@ static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, voi
 }
 
 static BotRenderer*
-renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_channel, const char* renderer_name)
+renderer_pixel_map_new(BotViewer *viewer, int render_priority, lcm_t *lcm, const char* lcm_channel, const char* renderer_name)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) calloc(1, sizeof(OccMapRendererPixelMap));
   BotRenderer *renderer = &self->renderer;
   self->viewer = viewer;
-  self->lc = bot_lcm_get_global(NULL);
+  if(lcm !=NULL)
+    self->lc = lcm;
+  else{
+    self->lc = bot_lcm_get_global(NULL);
+  }
 
   renderer->draw = PixelMap_draw;
   renderer->destroy = PixelMap_free;
@@ -293,7 +297,6 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   bot_gtk_param_widget_add_double(self->pw, PARAM_ALPHA, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, 0.05, 0.7);
   bot_gtk_param_widget_add_double(self->pw, PARAM_COLOR, BOT_GTK_PARAM_WIDGET_SLIDER, 0, 1, 0.05, 0.7);
   bot_gtk_param_widget_add_double(self->pw, PARAM_Z_OFFSET, BOT_GTK_PARAM_WIDGET_SLIDER, -3, 3, 0.05, -0.1);
-  //  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_FOLLOW_Z, 1, NULL);
 
   gtk_widget_show_all(renderer->widget);
   g_signal_connect(G_OBJECT(self->pw), "changed", G_CALLBACK(on_param_widget_changed), self);
@@ -303,14 +306,22 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, const char* lcm_c
   // pick a default channel if none specified
   if (!lcm_channel || !strlen(lcm_channel))
     lcm_channel = "PIXEL_MAP";
+  
   occ_map_pixel_map_t_subscribe(self->lc, lcm_channel, pixel_map_handler, self);
   return &self->renderer;
 }
 
-extern "C" void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority,
+extern "C" void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel, const char* renderer_name)
+{
+  BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, NULL, lcm_channel, renderer_name);
+  bot_viewer_add_renderer(viewer, renderer, render_priority);
+}
+
+
+extern "C" void occ_map_pixel_map_add_renderer_to_viewer_lcm(BotViewer *viewer, int render_priority, lcm_t *lcm, 
     const char* lcm_channel, const char* renderer_name)
 {
-  BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm_channel, renderer_name);
+  BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm, lcm_channel, renderer_name);
   bot_viewer_add_renderer(viewer, renderer, render_priority);
 }
 
