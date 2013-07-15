@@ -23,14 +23,15 @@
 #define PARAM_ALPHA "Alpha"
 #define PARAM_COLOR "COLOR"
 #define PARAM_RESCALE_01 "RESCALE 0-1"
+#define PARAM_CENTER_DATA "Center Data in Pixel"
+#define PARAM_INTERP_MODE "Interpolation Mode"
+#define PARAM_DEPTH_TESTING "Enable Depth Testing"
 
 #define PARAM_Z_OFFSET "Z-Offset"
 //#define PARAM_FOLLOW_Z "Follow Vehicle Z"
 
 typedef enum {
-  gray,
-  color,
-  jet
+  gray, color, jet
 } color_mode_t;
 
 #define DEFAULT_RENDERER_NAME "PixelMap"
@@ -140,13 +141,17 @@ static void upload_map_texture(OccMapRendererPixelMap *self)
     self->textureDepth = textureDepth;
   }
 
+  // Toggle the interp mode
+  if (self->map2dtexture != NULL)
+    bot_gl_texture_set_interp(self->map2dtexture,
+        bot_gtk_param_widget_get_bool(self->pw, PARAM_INTERP_MODE) ? GL_NEAREST : GL_LINEAR);
+
   uint8_t * draw_data = (uint8_t *) malloc(data_size);
   if (textureDepth == 1) {
     for (int i = 0; i < self->pix_map->num_cells; i++)
       draw_data[i] = invert_uint8_t(self->pix_map->data[i]);
     bot_gl_texture_upload(self->map2dtexture, GL_LUMINANCE, GL_UNSIGNED_BYTE,
-        self->pix_map->dimensions[0] * sizeof(uint8_t),
-        draw_data);
+        self->pix_map->dimensions[0] * sizeof(uint8_t), draw_data);
   }
   else if (textureDepth == 3) {
     for (int i = 0; i < self->pix_map->num_cells; i++) {
@@ -157,8 +162,7 @@ static void upload_map_texture(OccMapRendererPixelMap *self)
       pixel[2] = color[2] * 255.0;
     }
     int stride = self->pix_map->dimensions[0] * 3 * sizeof(uint8_t);
-    bot_gl_texture_upload(self->map2dtexture, GL_RGB, GL_UNSIGNED_BYTE,
-        stride, draw_data);
+    bot_gl_texture_upload(self->map2dtexture, GL_RGB, GL_UNSIGNED_BYTE, stride, draw_data);
   }
   free(draw_data);
 
@@ -178,14 +182,20 @@ static void PixelMap_draw(BotViewer *viewer, BotRenderer *renderer)
       glColor4f(1, 1, 1, bot_gtk_param_widget_get_double(self->pw, PARAM_ALPHA));
     }
 
-    //    glEnable(GL_DEPTH_TEST);
+    if (bot_gtk_param_widget_get_bool(self->pw, PARAM_DEPTH_TESTING))
+      glEnable(GL_DEPTH_TEST);
     glPushMatrix();
 
     double z_offset = bot_gtk_param_widget_get_double(self->pw, PARAM_Z_OFFSET);
     //    if (bot_gtk_param_widget_get_bool(self->pw,PARAM_FOLLOW_Z))
     //      glTranslatef(0, 0, cur_pose.pos[2] + z_offset);
     //    else
-    glTranslatef(0, 0, z_offset);
+
+    // Correct for the lower-left drawing convention
+    double xy_offset = 0;
+    if (bot_gtk_param_widget_get_bool(self->pw, PARAM_CENTER_DATA))
+      xy_offset = -self->pix_map_msg->mpp / 2;
+    glTranslatef(xy_offset, xy_offset, z_offset);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -196,7 +206,8 @@ static void PixelMap_draw(BotViewer *viewer, BotRenderer *renderer)
 
     glPopMatrix();
     glDisable(GL_BLEND);
-    //    glDisable(GL_DEPTH_TEST);
+    if (bot_gtk_param_widget_get_bool(self->pw, PARAM_DEPTH_TESTING))
+      glDisable(GL_DEPTH_TEST);
   }
 
 }
@@ -206,8 +217,8 @@ static void PixelMap_free(BotRenderer *renderer)
   free(renderer);
 }
 
-static int mouse_press(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3],
-    const double ray_dir[3], const GdkEventButton *event)
+static int mouse_press(BotViewer *viewer, BotEventHandler *ehandler, const double ray_start[3], const double ray_dir[3],
+    const GdkEventButton *event)
 {
   return 1;
 }
@@ -250,20 +261,22 @@ static void on_save_preferences(BotViewer *viewer, GKeyFile *keyfile, void *user
 static void on_param_widget_changed(BotGtkParamWidget *pw, const char *name, void *user)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) user;
-  if (strcmp(name, PARAM_COLOR_MODE) == 0 || strcmp(name, PARAM_RESCALE_01) == 0)
+  if (strcmp(name, PARAM_COLOR_MODE) == 0 || strcmp(name, PARAM_RESCALE_01) == 0
+      || strcmp(name, PARAM_INTERP_MODE) == 0)
     upload_map_texture(self);
   bot_viewer_request_redraw(self->viewer);
 }
 
 static BotRenderer*
-renderer_pixel_map_new(BotViewer *viewer, int render_priority, lcm_t *lcm, const char* lcm_channel, const char* renderer_name)
+renderer_pixel_map_new(BotViewer *viewer, int render_priority, lcm_t *lcm, const char* lcm_channel,
+    const char* renderer_name)
 {
   OccMapRendererPixelMap *self = (OccMapRendererPixelMap*) calloc(1, sizeof(OccMapRendererPixelMap));
   BotRenderer *renderer = &self->renderer;
   self->viewer = viewer;
-  if(lcm !=NULL)
+  if (lcm != NULL)
     self->lc = lcm;
-  else{
+  else {
     self->lc = bot_lcm_get_global(NULL);
   }
 
@@ -290,6 +303,9 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, lcm_t *lcm, const
   gtk_box_pack_start(GTK_BOX(renderer->widget), GTK_WIDGET(self->pw), TRUE, TRUE, 0);
 
   bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_RESCALE_01, 0, NULL);
+  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_CENTER_DATA, 0, NULL);
+  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_INTERP_MODE, 0, NULL);
+  bot_gtk_param_widget_add_booleans(self->pw, BOT_GTK_PARAM_WIDGET_CHECKBOX, PARAM_DEPTH_TESTING, 0, NULL);
 
   bot_gtk_param_widget_add_enum(self->pw, PARAM_COLOR_MODE, BOT_GTK_PARAM_WIDGET_DEFAULTS, 0, "Grayscale", gray,
       "Color", color, "Jet", jet, NULL);
@@ -306,19 +322,19 @@ renderer_pixel_map_new(BotViewer *viewer, int render_priority, lcm_t *lcm, const
   // pick a default channel if none specified
   if (!lcm_channel || !strlen(lcm_channel))
     lcm_channel = "PIXEL_MAP";
-  
+
   occ_map_pixel_map_t_subscribe(self->lc, lcm_channel, pixel_map_handler, self);
   return &self->renderer;
 }
 
-extern "C" void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority, const char* lcm_channel, const char* renderer_name)
+extern "C" void occ_map_pixel_map_add_renderer_to_viewer(BotViewer *viewer, int render_priority,
+    const char* lcm_channel, const char* renderer_name)
 {
   BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, NULL, lcm_channel, renderer_name);
   bot_viewer_add_renderer(viewer, renderer, render_priority);
 }
 
-
-extern "C" void occ_map_pixel_map_add_renderer_to_viewer_lcm(BotViewer *viewer, int render_priority, lcm_t *lcm, 
+extern "C" void occ_map_pixel_map_add_renderer_to_viewer_lcm(BotViewer *viewer, int render_priority, lcm_t *lcm,
     const char* lcm_channel, const char* renderer_name)
 {
   BotRenderer* renderer = renderer_pixel_map_new(viewer, render_priority, lcm, lcm_channel, renderer_name);
