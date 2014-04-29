@@ -109,6 +109,26 @@ static void upload_map_texture(OccMapRendererPixelMap *self)
       delete fmap;
     }
     break;
+  case OCC_MAP_PIXEL_MAP_T_TYPE_INT32:
+      {
+      IntPixelMap * imap = new IntPixelMap(self->pix_map_msg);
+      FloatPixelMap * fmap = new FloatPixelMap(imap->xy0, imap->xy1, imap->metersPerPixel, 0);
+      if (bot_gtk_param_widget_get_bool(self->pw, PARAM_RESCALE_01)) {
+        float min_val = FLT_MAX;
+        float max_val = -FLT_MAX;
+        for (int i = 0; i < imap->num_cells; i++) {
+          fmap->data[i] = (float) imap->data[i];
+          min_val = fmin(min_val, fmap->data[i]);
+          max_val = fmax(max_val, fmap->data[i]);
+        }
+        for (int i = 0; i < fmap->num_cells; i++) {
+          fmap->data[i] = (fmap->data[i] - min_val) / (max_val - min_val);
+        }
+      }
+      self->pix_map = new Uint8PixelMap(fmap, true, floatToUint8);
+      delete fmap;
+    }
+    break;
   case OCC_MAP_PIXEL_MAP_T_TYPE_UINT8:
     {
       self->pix_map = new Uint8PixelMap(self->pix_map_msg);
