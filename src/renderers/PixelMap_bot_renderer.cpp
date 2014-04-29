@@ -126,6 +126,7 @@ static void upload_map_texture(OccMapRendererPixelMap *self)
         }
       }
       self->pix_map = new Uint8PixelMap(fmap, true, floatToUint8);
+      delete imap;
       delete fmap;
     }
     break;
